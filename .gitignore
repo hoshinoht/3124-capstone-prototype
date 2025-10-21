@@ -1,0 +1,112 @@
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Rust / Backend
+backend/target/
+backend/**/*.rs.bk
+backend/*.pdb
+
+# Frontend / Node
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.cache/
+frontend/coverage/
+
+# Frontend testing
+frontend/.nyc_output
+
+# Frontend misc
+frontend/.DS_Store
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Logs
+*.log
+logs/
+backend/*.log
+frontend/*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+backend/.env.local
+frontend/.env.local
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# Package manager locks (optional - uncomment if you want to ignore these)
+# frontend/package-lock.json
+# frontend/yarn.lock
+# backend/Cargo.lock
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Documentation builds
+docs/_build/
+site/
+
+# Secrets and keys
+*.pem
+*.key
+*.crt
+secrets.*
+credentials.*
+
+# Compiled files
+*.class
+*.jar
+*.war
+*.ear
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+# Production builds
+build/
+dist/
+out/
