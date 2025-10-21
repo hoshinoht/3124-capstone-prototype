@@ -1,0 +1,1 @@
+cargo:rustc-env=MIME_TYPES_GENERATED_PATH=/Users/cantabile/Projects/3124-capstone-prototype/Backend/target/debug/build/mime_guess-a6260c424cbd928e/out/mime_types_generated.rs

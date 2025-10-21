@@ -1,0 +1,10 @@
+/Users/cantabile/Projects/3124-capstone-prototype/Backend/target/debug/deps/actix_cors-0f4a4e729403f6ce.d: /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/lib.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/all_or_some.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/builder.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/error.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/inner.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/middleware.rs
+
+/Users/cantabile/Projects/3124-capstone-prototype/Backend/target/debug/deps/libactix_cors-0f4a4e729403f6ce.rmeta: /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/lib.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/all_or_some.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/builder.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/error.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/inner.rs /Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/middleware.rs
+
+/Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/lib.rs:
+/Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/all_or_some.rs:
+/Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/builder.rs:
+/Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/error.rs:
+/Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/inner.rs:
+/Users/cantabile/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/actix-cors-0.7.1/src/middleware.rs:
