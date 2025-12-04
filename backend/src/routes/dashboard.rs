@@ -6,14 +6,13 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
 }
 
 async fn get_dashboard_data(pool: web::Data<SqlitePool>) -> HttpResponse {
-    // Get active projects count (using tasks as proxy for projects)
-    let active_projects = sqlx::query_as::<_, (i64,)>(
-        "SELECT COUNT(DISTINCT department) FROM tasks WHERE status != 'completed'",
-    )
-    .fetch_one(pool.get_ref())
-    .await
-    .map(|(count,)| count)
-    .unwrap_or(0);
+    // Get active projects count from the projects table
+    let active_projects =
+        sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM projects WHERE status = 'active'")
+            .fetch_one(pool.get_ref())
+            .await
+            .map(|(count,)| count)
+            .unwrap_or(0);
 
     // Get team members count
     let team_members =
@@ -23,9 +22,19 @@ async fn get_dashboard_data(pool: web::Data<SqlitePool>) -> HttpResponse {
             .map(|(count,)| count)
             .unwrap_or(0);
 
-    // Get completed tasks count
+    // Get distinct departments count for display
+    let departments_count = sqlx::query_as::<_, (i64,)>(
+        "SELECT COUNT(DISTINCT department) FROM users WHERE is_active = 1",
+    )
+    .fetch_one(pool.get_ref())
+    .await
+    .map(|(count,)| count)
+    .unwrap_or(0);
+
+    // Get completed tasks count (this week)
     let completed_tasks = sqlx::query_as::<_, (i64,)>(
-        "SELECT COUNT(*) FROM tasks WHERE status = 'completed' OR is_completed = 1",
+        "SELECT COUNT(*) FROM tasks WHERE (status = 'completed' OR is_completed = 1) 
+         AND updated_at >= date('now', '-7 days')",
     )
     .fetch_one(pool.get_ref())
     .await
@@ -134,6 +143,7 @@ async fn get_dashboard_data(pool: web::Data<SqlitePool>) -> HttpResponse {
             "stats": {
                 "activeProjects": active_projects,
                 "teamMembers": team_members,
+                "departmentsCount": departments_count,
                 "completedTasks": completed_tasks,
                 "meetingsToday": today_meetings,
                 "pendingTasks": pending_tasks,

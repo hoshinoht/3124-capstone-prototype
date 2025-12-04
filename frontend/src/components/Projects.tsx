@@ -778,14 +778,19 @@ export function Projects() {
                   placeholder="Type project name to confirm"
                   value={deleteConfirmName}
                   onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                    }
+                  }}
                   className="mt-1"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="grid grid-cols-2 gap-3 pt-4">
                 <Button
+                  type="button"
                   variant="outline"
-                  className="flex-1"
                   onClick={() => {
                     setShowDeleteModal(false);
                     setProjectToDelete(null);
@@ -795,7 +800,8 @@ export function Projects() {
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  type="button"
+                  variant="destructive"
                   onClick={handleDeleteProject}
                   disabled={deleteConfirmName !== projectToDelete.name}
                 >

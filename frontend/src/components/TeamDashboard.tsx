@@ -8,6 +8,7 @@ import { dashboardApi } from "../services/api";
 interface DashboardStats {
   activeProjects: number;
   teamMembers: number;
+  departmentsCount: number;
   completedTasks: number;
   meetingsToday: number;
   pendingTasks: number;
@@ -40,6 +41,7 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
   const [stats, setStats] = useState<DashboardStats>({
     activeProjects: 0,
     teamMembers: 0,
+    departmentsCount: 0,
     completedTasks: 0,
     meetingsToday: 0,
     pendingTasks: 0,
@@ -164,7 +166,7 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Team Members</p>
                 <p className="text-3xl text-gray-900">{stats.teamMembers}</p>
-                <p className="text-xs text-gray-500 mt-1">Across 2 departments</p>
+                <p className="text-xs text-gray-500 mt-1">Across {stats.departmentsCount} department{stats.departmentsCount !== 1 ? 's' : ''}</p>
               </div>
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-green-600" />
