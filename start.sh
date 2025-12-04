@@ -147,8 +147,8 @@ start_frontend() {
     # Wait for frontend to be ready
     print_status "Waiting for frontend to start..."
     for i in {1..30}; do
-        if curl -s http://localhost:5173 >/dev/null 2>&1; then
-            print_success "Frontend server running on http://localhost:5173"
+        if curl -s http://localhost:3000 >/dev/null 2>&1; then
+            print_success "Frontend server running on http://localhost:3000"
             return 0
         fi
         sleep 1

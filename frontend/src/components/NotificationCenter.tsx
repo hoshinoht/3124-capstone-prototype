@@ -21,6 +21,11 @@ interface NotificationCenterProps {
 export function NotificationCenter({ notifications, setNotifications }: NotificationCenterProps) {
   const [loading, setLoading] = useState(false);
 
+  // Check if notification ID is from database (UUID) vs locally generated (number)
+  const isDbNotification = (id: number | string) => {
+    return typeof id === 'string' && id.includes('-');
+  };
+
   const handleMarkAsRead = async (notificationId: number) => {
     // Optimistic update
     setNotifications(
@@ -29,16 +34,19 @@ export function NotificationCenter({ notifications, setNotifications }: Notifica
       )
     );
 
-    try {
-      await notificationsApi.markAsRead(String(notificationId));
-    } catch (err) {
-      console.error("Failed to mark notification as read:", err);
-      // Revert on error
-      setNotifications(
-        notifications.map(n =>
-          n.id === notificationId ? { ...n, read: false } : n
-        )
-      );
+    // Only call API for database notifications (UUIDs)
+    if (isDbNotification(notificationId as any)) {
+      try {
+        await notificationsApi.markAsRead(String(notificationId));
+      } catch (err) {
+        console.error("Failed to mark notification as read:", err);
+        // Revert on error
+        setNotifications(
+          notifications.map(n =>
+            n.id === notificationId ? { ...n, read: false } : n
+          )
+        );
+      }
     }
   };
 
@@ -47,12 +55,16 @@ export function NotificationCenter({ notifications, setNotifications }: Notifica
     // Optimistic update
     setNotifications(notifications.map(n => ({ ...n, read: true })));
 
-    try {
-      await notificationsApi.markAllAsRead();
-    } catch (err) {
-      console.error("Failed to mark all as read:", err);
-      // Revert on error
-      setNotifications(previousNotifications);
+    // Only call API if there are database notifications
+    const hasDbNotifications = notifications.some(n => isDbNotification(n.id as any));
+    if (hasDbNotifications) {
+      try {
+        await notificationsApi.markAllAsRead();
+      } catch (err) {
+        console.error("Failed to mark all as read:", err);
+        // Revert on error
+        setNotifications(previousNotifications);
+      }
     }
   };
 

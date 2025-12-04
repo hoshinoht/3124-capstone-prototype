@@ -14,9 +14,12 @@ interface Task {
   id: number;
   title: string;
   description: string;
-  urgency: "urgent" | "low";
+  urgency: "urgent" | "medium" | "low";
   deadline: string;
   completed: boolean;
+  projectId?: string;
+  projectName?: string;
+  taskType?: "task" | "meeting";
 }
 
 interface EquipmentBooking {
@@ -42,11 +45,15 @@ export function TaskManagement() {
 
   const [bookings, setBookings] = useState<EquipmentBooking[]>([]);
 
+  const [projects, setProjects] = useState<Project[]>([]);
+
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     deadline: "",
     urgency: "medium" as "urgent" | "low" | "medium",
+    projectId: "",
+    taskType: "task" as "task" | "meeting",
   });
 
   const [newBooking, setNewBooking] = useState({
@@ -71,9 +78,12 @@ export function TaskManagement() {
               id: t.id,
               title: t.title,
               description: t.description || "",
-              urgency: t.priority === "high" || t.urgency === "urgent" ? "urgent" : "low",
+              urgency: t.priority === "high" || t.urgency === "urgent" ? "urgent" : (t.urgency === "medium" ? "medium" : "low"),
               deadline: t.due_date || t.deadline || "No deadline",
               completed: t.is_completed || t.isCompleted || false,
+              projectId: t.projectId || t.project_id,
+              projectName: t.projectName || t.project_name,
+              taskType: t.task_type || t.taskType || "task",
             })));
           }
         } catch (err) {
@@ -96,6 +106,16 @@ export function TaskManagement() {
           }
         } catch (err) {
           console.error("Failed to fetch equipment bookings:", err);
+        }
+
+        // Fetch projects
+        try {
+          const response = await projectsApi.getAll();
+          if (response.data?.projects) {
+            setProjects(response.data.projects);
+          }
+        } catch (err) {
+          console.error("Failed to fetch projects:", err);
         }
 
       } catch (err) {
@@ -150,11 +170,22 @@ export function TaskManagement() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dateStr = formatSelectedDate(date);
 
+    // Format date as YYYY-MM-DD for comparison with ISO dates (use local date parts to avoid timezone issues)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const isoDateStr = `${year}-${month}-${day}`;
+
     return tasks.filter(task => {
+      if (!task.deadline) return false;
       const deadline = task.deadline.toLowerCase();
       // Check for "Today", "Tomorrow", or exact date match
       if (dateStr === "Today" && deadline === "today") return true;
       if (dateStr === "Tomorrow" && deadline === "tomorrow") return true;
+      // Check if deadline matches ISO format (YYYY-MM-DD)
+      if (task.deadline === isoDateStr) return true;
+      // Check if deadline starts with the ISO date (handles datetime strings)
+      if (task.deadline.startsWith(isoDateStr)) return true;
       // Check if deadline contains the formatted date
       if (task.deadline.includes(`${monthNames[date.getMonth()]} ${date.getDate()}`)) return true;
       // Try parsing deadline as a date
@@ -167,6 +198,27 @@ export function TaskManagement() {
   };
 
   const filteredTasks = getTasksForDate(selectedDate);
+
+  // Get the highest severity task for a given date (for calendar dots)
+  const getHighestSeverityForDate = (date: Date): "urgent" | "medium" | "low" | null => {
+    const tasksForDate = getTasksForDate(date).filter(t => !t.completed);
+    if (tasksForDate.length === 0) return null;
+
+    // Priority: urgent > medium > low
+    if (tasksForDate.some(t => t.urgency === "urgent")) return "urgent";
+    if (tasksForDate.some(t => t.urgency === "medium")) return "medium";
+    return "low";
+  };
+
+  // Get dot color based on severity
+  const getSeverityDotColor = (severity: "urgent" | "medium" | "low" | null): string => {
+    switch (severity) {
+      case "urgent": return "bg-red-500";
+      case "medium": return "bg-yellow-500";
+      case "low": return "bg-green-500";
+      default: return "";
+    }
+  };
 
   const handleToggleTask = async (taskId: number) => {
     const task = tasks.find(t => t.id === taskId);
@@ -204,18 +256,22 @@ export function TaskManagement() {
     if (!newTask.title || !newTask.deadline) return;
 
     const tempId = Date.now();
+    const selectedProject = projects.find(p => p.id === newTask.projectId);
     const task: Task = {
       id: tempId,
       title: newTask.title,
       description: newTask.description,
-      urgency: newTask.urgency === "medium" ? "low" : newTask.urgency,
+      urgency: newTask.urgency,
       deadline: newTask.deadline,
       completed: false,
+      projectId: newTask.projectId || undefined,
+      projectName: selectedProject?.name,
+      taskType: newTask.taskType,
     };
 
     // Optimistic update
     setTasks([...tasks, task]);
-    setNewTask({ title: "", description: "", deadline: "", urgency: "medium" });
+    setNewTask({ title: "", description: "", deadline: "", urgency: "medium", projectId: "", taskType: "task" });
     setActiveTab("tasks");
 
     try {
@@ -225,6 +281,7 @@ export function TaskManagement() {
         urgency: newTask.urgency,
         department: "IT",
         deadline: newTask.deadline,
+        projectId: newTask.projectId || undefined,
       });
 
       // Update with real ID
@@ -243,21 +300,36 @@ export function TaskManagement() {
     if (!newBooking.equipmentName || !newBooking.startTime || !newBooking.endTime || !newBooking.bookedBy) return;
 
     const tempId = Date.now();
+    const bookingDate = selectedDate.toISOString().split('T')[0];
     const booking: EquipmentBooking = {
       id: tempId,
       ...newBooking,
-      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      date: selectedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     };
 
-    // Optimistic update
+    // Create a corresponding task for the booking
+    const taskTempId = tempId + 1;
+    const bookingTask: Task = {
+      id: taskTempId,
+      title: `Equipment: ${newBooking.equipmentName}`,
+      description: `Booked by ${newBooking.bookedBy}${newBooking.purpose ? ` - ${newBooking.purpose}` : ''}\nTime: ${newBooking.startTime} - ${newBooking.endTime}`,
+      urgency: "low",
+      deadline: bookingDate,
+      completed: false,
+      taskType: "meeting",
+    };
+
+    // Optimistic update for both booking and task
     setBookings([...bookings, booking]);
+    setTasks([...tasks, bookingTask]);
     setNewBooking({ equipmentName: "", startTime: "", endTime: "", bookedBy: "", purpose: "" });
 
     try {
+      // Create booking
       const response = await equipmentApi.createBooking({
         equipmentId: "temp", // The API should handle this
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
+        startDate: bookingDate,
+        endDate: bookingDate,
         purpose: newBooking.purpose,
         department: "IT",
       });
@@ -267,9 +339,24 @@ export function TaskManagement() {
           b.id === tempId ? { ...b, id: response.data.booking.id } : b
         ));
       }
+
+      // Create task for the booking
+      const taskResponse = await tasksApi.create({
+        title: `Equipment: ${newBooking.equipmentName}`,
+        description: `Booked by ${newBooking.bookedBy}${newBooking.purpose ? ` - ${newBooking.purpose}` : ''}\nTime: ${newBooking.startTime} - ${newBooking.endTime}`,
+        urgency: "low",
+        department: "IT",
+        deadline: bookingDate,
+      });
+
+      if (taskResponse.success && taskResponse.data?.task) {
+        setTasks(prev => prev.map(t =>
+          t.id === taskTempId ? { ...t, id: taskResponse.data.task.id } : t
+        ));
+      }
     } catch (err) {
       console.error("Failed to create booking:", err);
-      // Keep local booking on error (graceful degradation)
+      // Keep local booking and task on error (graceful degradation)
     }
   };
 
@@ -367,12 +454,13 @@ export function TaskManagement() {
               const isToday = new Date().getDate() === day &&
                 new Date().getMonth() === currentDate.getMonth() &&
                 new Date().getFullYear() === currentDate.getFullYear();
+              const severity = getHighestSeverityForDate(dateForDay);
 
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(dateForDay)}
-                  className={`aspect-square flex items-center justify-center text-sm rounded transition-colors ${isSelected
+                  className={`aspect-square flex items-center justify-center text-sm rounded transition-colors relative ${isSelected
                     ? 'bg-black text-white'
                     : isToday
                       ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
@@ -380,6 +468,20 @@ export function TaskManagement() {
                     }`}
                 >
                   {day}
+                  {severity && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '2px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: severity === 'urgent' ? '#ef4444' : severity === 'medium' ? '#eab308' : '#22c55e'
+                      }}
+                    />
+                  )}
                 </button>
               );
             })}
@@ -469,18 +571,30 @@ export function TaskManagement() {
                           className="mt-1"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 mb-1">
+                          <div className="flex items-start gap-2 mb-1 flex-wrap">
+                            <span className="text-sm">{task.taskType === "meeting" ? "📅" : "📋"}</span>
                             <h3 className={`text-sm ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                               {task.title}
                             </h3>
+                            {task.taskType === "meeting" && (
+                              <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs px-2 py-0">
+                                Meeting
+                              </Badge>
+                            )}
                             <Badge className={`${getUrgencyColor(task.urgency)} text-xs px-2 py-0`}>
                               {task.urgency}
                             </Badge>
+                            {task.projectName && (
+                              <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-xs px-2 py-0">
+                                <FolderKanban className="w-3 h-3 mr-1" />
+                                {task.projectName}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs text-gray-600 mb-2">{task.description}</p>
                           <div className="flex items-center gap-1 text-xs text-gray-500">
                             <Clock className="w-3 h-3" />
-                            <span>Due: {task.deadline}</span>
+                            <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
                           </div>
                         </div>
                         <button
@@ -500,15 +614,31 @@ export function TaskManagement() {
               <div>
                 <div className="mb-6">
                   <h2 className="text-lg mb-1">Create New Task</h2>
-                  <p className="text-sm text-gray-600">Add a task with urgency level and deadline</p>
+                  <p className="text-sm text-gray-600">Add a task or meeting with urgency level and deadline</p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="task-title">Task Title *</Label>
+                    <Label htmlFor="task-type">Task Type *</Label>
+                    <Select
+                      value={newTask.taskType}
+                      onValueChange={(value: "task" | "meeting") => setNewTask({ ...newTask, taskType: value })}
+                    >
+                      <SelectTrigger id="task-type" className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="task">📋 Task</SelectItem>
+                        <SelectItem value="meeting">📅 Meeting</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="task-title">{newTask.taskType === "meeting" ? "Meeting Title *" : "Task Title *"}</Label>
                     <Input
                       id="task-title"
-                      placeholder="Enter task title"
+                      placeholder={newTask.taskType === "meeting" ? "Enter meeting title" : "Enter task title"}
                       value={newTask.title}
                       onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                       className="mt-1"
@@ -519,7 +649,7 @@ export function TaskManagement() {
                     <Label htmlFor="task-description">Description</Label>
                     <Textarea
                       id="task-description"
-                      placeholder="Enter task description"
+                      placeholder={newTask.taskType === "meeting" ? "Enter meeting agenda or notes" : "Enter task description"}
                       value={newTask.description}
                       onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                       rows={3}
@@ -528,7 +658,7 @@ export function TaskManagement() {
                   </div>
 
                   <div>
-                    <Label htmlFor="task-deadline">Deadline *</Label>
+                    <Label htmlFor="task-deadline">{newTask.taskType === "meeting" ? "Meeting Date *" : "Deadline *"}</Label>
                     <div className="relative mt-1">
                       <Input
                         id="task-deadline"
@@ -558,12 +688,32 @@ export function TaskManagement() {
                     </Select>
                   </div>
 
+                  <div>
+                    <Label htmlFor="task-project">Project (Optional)</Label>
+                    <Select
+                      value={newTask.projectId || "none"}
+                      onValueChange={(value) => setNewTask({ ...newTask, projectId: value === "none" ? undefined : value })}
+                    >
+                      <SelectTrigger id="task-project" className="mt-1">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Project</SelectItem>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Button
                     onClick={handleCreateTask}
                     disabled={!newTask.title || !newTask.deadline}
                     className="w-full bg-black hover:bg-gray-800"
                   >
-                    Create Task
+                    {newTask.taskType === "meeting" ? "Create Meeting" : "Create Task"}
                   </Button>
                 </div>
               </div>

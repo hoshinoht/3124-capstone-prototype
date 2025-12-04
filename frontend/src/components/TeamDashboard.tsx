@@ -32,7 +32,11 @@ interface QuickLink {
   status?: string;
 }
 
-export function TeamDashboard() {
+interface TeamDashboardProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
   const [stats, setStats] = useState<DashboardStats>({
     activeProjects: 0,
     teamMembers: 0,
@@ -209,7 +213,7 @@ export function TeamDashboard() {
                 <CardTitle>Recent Meetings</CardTitle>
                 <CardDescription>Upcoming and past meetings</CardDescription>
               </div>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={() => onNavigate?.("tasks")}>
                 View All
               </Button>
             </div>

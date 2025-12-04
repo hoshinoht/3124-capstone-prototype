@@ -306,7 +306,7 @@ export default function App() {
 
         {/* Content Area */}
         <div className="space-y-6">
-          {activeTab === "dashboard" && <TeamDashboard />}
+          {activeTab === "dashboard" && <TeamDashboard onNavigate={setActiveTab} />}
           {activeTab === "tasks" && <TaskManagement />}
           {activeTab === "projects" && <Projects />}
           {activeTab === "personnel" && <Personnel />}

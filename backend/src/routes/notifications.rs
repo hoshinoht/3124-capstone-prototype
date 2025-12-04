@@ -10,8 +10,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/notifications")
             .route("", web::get().to(get_notifications))
-            .route("/{notification_id}/read", web::post().to(mark_as_read))
-            .route("/read-all", web::post().to(mark_all_as_read))
+            .route("/{notification_id}/read", web::patch().to(mark_as_read))
+            .route("/read-all", web::patch().to(mark_all_as_read))
             .route("/{notification_id}", web::delete().to(delete_notification))
             .route("/clear-all", web::delete().to(clear_all_notifications))
             .route("/stats", web::get().to(get_stats))

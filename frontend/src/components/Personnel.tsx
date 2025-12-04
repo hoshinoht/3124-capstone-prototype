@@ -149,7 +149,7 @@ export function Personnel() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 md:grid-cols-3 gap-4">
         <Card className="p-6 bg-green-50 border-green-200">
           <p className="text-sm text-green-800 mb-1">Clocked In</p>
           <p className="text-3xl text-green-900">{activePersonnel}</p>
