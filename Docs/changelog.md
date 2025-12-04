@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.0] - December 2025
+
+### 🎨 UI/UX Improvements
+
+#### **Login & Register Pages Redesign**
+- **White Frosted Glass Effect**: Updated card backgrounds from dark to white frosted glass
+  - Background: `rgba(255, 255, 255, 0.85)` with `backdrop-filter: blur(12px)`
+  - Clean, modern aesthetic with subtle transparency
+- **Responsive Card Width**: Cards now use 60% width on desktop (`sm:w-3/5`) and full width on mobile
+- **Taller Input Fields**: Increased input height to 56px using inline styles to override component defaults
+- **Consistent Styling**: Matching design between Login and Register pages
+
+#### **Team Dashboard Enhancements**
+- **Clickable Stat Cards**: Dashboard statistics are now interactive
+  - Click on "Active Projects" to view all projects
+  - Click on "Team Members" to view personnel tracking
+  - Click on "Completed Tasks" to view task list
+  - Click on "Meetings Today" to view meetings
+- **Detail View Panel**: New expandable view when clicking stat cards
+  - Search functionality for filtering data
+  - Dropdown filters (status, urgency, etc.)
+  - Back to Overview button
+  - Smooth transitions and loading states
+- **Proper Table Structure**: Replaced CSS grid with proper HTML table elements
+  - `<table>`, `<thead>`, `<tbody>`, `<tr>`, `<th>`, `<td>` structure
+  - Fixed column widths for consistent layout
+  - Proper border-collapse styling
+- **Enhanced Table Spacing**: Improved row padding with inline styles
+  - 20px vertical padding on all table cells
+  - Bottom borders between rows (`border-b border-gray-100`)
+  - Hover states on rows (`hover:bg-gray-50`)
+
+### 🔧 Technical Improvements
+
+#### **Component Updates**
+- **TeamDashboard.tsx**:
+  - Added `activeDetail` state for tracking which detail view is open
+  - Added `detailData`, `detailLoading`, `searchQuery`, `filterValue` states
+  - New `handleCardClick(view)` function for fetching relevant data
+  - New `handleBackToOverview()` function for navigation
+  - API integration with `projectsApi`, `usersApi`, `tasksApi`, `eventsApi`
+  - Conditional rendering for overview vs detail views
+
+- **Login.tsx & Register.tsx**:
+  - Inline style overrides for component defaults
+  - Responsive width classes with Tailwind breakpoints
+  - Updated card styling with frosted glass effect
+
+### 🐛 Bug Fixes
+
+- Fixed input height not applying due to shadcn/ui Input component's default `h-9` class
+- Fixed table layout rendering in single column (replaced CSS grid with HTML tables)
+- Fixed table row spacing not applying (replaced Tailwind classes with inline styles)
+
+---
+
 ## [1.1.0] - December 2025
 
 ### 🎉 Major Features Added
