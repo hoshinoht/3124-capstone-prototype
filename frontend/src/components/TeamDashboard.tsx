@@ -32,72 +32,17 @@ interface QuickLink {
   status?: string;
 }
 
-// Default mock data as fallback
-const defaultMeetings: Meeting[] = [
-  {
-    id: 1,
-    title: "NUHS Weekly Meeting",
-    host: "Robert",
-    date: "Today at 10:30 AM",
-    duration: "1 hour",
-    participants: 7,
-    status: "Upcoming",
-  },
-  {
-    id: 2,
-    title: "AMK Hub Project Sync",
-    host: "David",
-    date: "Today at 2:00 PM",
-    duration: "1 hour",
-    participants: 12,
-    status: "Completed",
-  },
-  {
-    id: 3,
-    title: "Sports Hub Coordination",
-    host: "John",
-    date: "Today at 11:38 AM",
-    duration: "2 hours",
-    participants: 15,
-    status: "Upcoming",
-  },
-];
-
-const defaultQuickLinks: QuickLink[] = [
-  {
-    id: 1,
-    title: "NUHS Weekly Meeting",
-    subtitle: "Meeting on Wednesday at 1:15 PM EST",
-    host: "Robert",
-    status: "Pinned",
-  },
-  {
-    id: 2,
-    title: "AMK Hub Project Sync",
-    subtitle: "Check-in meeting on 07:57 AM",
-    host: "Sarah",
-    status: "Pinned",
-  },
-  {
-    id: 3,
-    title: "Sports Hub Coordination",
-    subtitle: "Team standup at 3:25 PM EST",
-    host: "Sarah",
-    status: "Pinned",
-  },
-];
-
 export function TeamDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
-    activeProjects: 12,
-    teamMembers: 24,
-    completedTasks: 87,
-    meetingsToday: 3,
-    pendingTasks: 5,
-    urgentTasks: 2,
+    activeProjects: 0,
+    teamMembers: 0,
+    completedTasks: 0,
+    meetingsToday: 0,
+    pendingTasks: 0,
+    urgentTasks: 0,
   });
-  const [meetings, setMeetings] = useState<Meeting[]>(defaultMeetings);
-  const [quickLinks, setQuickLinks] = useState<QuickLink[]>(defaultQuickLinks);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -106,21 +51,34 @@ export function TeamDashboard() {
       try {
         setLoading(true);
         setError(null);
-        const data = await dashboardApi.getDashboardData();
+        const response = await dashboardApi.getData();
 
-        if (data.stats) {
-          setStats(data.stats);
+        if (response.data?.stats) {
+          setStats(response.data.stats);
         }
-        if (data.recentMeetings && data.recentMeetings.length > 0) {
-          setMeetings(data.recentMeetings);
+        if (response.data?.recentMeetings) {
+          setMeetings(response.data.recentMeetings.map((m: any) => ({
+            id: m.id,
+            title: m.title,
+            host: m.host || "Unknown",
+            date: m.date || "",
+            duration: m.duration || "1 hour",
+            participants: m.participants || 0,
+            status: m.status || "Upcoming",
+          })));
         }
-        if (data.quickLinks && data.quickLinks.length > 0) {
-          setQuickLinks(data.quickLinks);
+        if (response.data?.quickLinks) {
+          setQuickLinks(response.data.quickLinks.map((l: any) => ({
+            id: l.id,
+            title: l.title,
+            subtitle: l.subtitle || l.schedule || l.description || "",
+            host: l.host,
+            status: l.status,
+          })));
         }
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
-        setError("Failed to load dashboard data. Using cached data.");
-        // Keep default data on error
+        setError("Failed to load dashboard data.");
       } finally {
         setLoading(false);
       }
@@ -257,38 +215,45 @@ export function TeamDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {meetings.map((meeting) => (
-                <div
-                  key={meeting.id}
-                  className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                >
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Video className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <h4 className="text-sm text-gray-900">{meeting.title}</h4>
-                      <Badge className={getBadgeColor(meeting.status)}>{meeting.status}</Badge>
+            {meetings.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Video className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No meetings scheduled</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {meetings.map((meeting) => (
+                  <div
+                    key={meeting.id}
+                    className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                  >
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Video className="w-5 h-5 text-blue-600" />
                     </div>
-                    <p className="text-xs text-gray-600">Hosted by {meeting.host}</p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {meeting.date}
-                      </span>
-                      <span>•</span>
-                      <span>{meeting.duration}</span>
-                      <span>•</span>
-                      <span>{meeting.participants} participants</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h4 className="text-sm text-gray-900">{meeting.title}</h4>
+                        <Badge className={getBadgeColor(meeting.status)}>{meeting.status}</Badge>
+                      </div>
+                      <p className="text-xs text-gray-600">Hosted by {meeting.host}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {meeting.date}
+                        </span>
+                        <span>•</span>
+                        <span>{meeting.duration}</span>
+                        <span>•</span>
+                        <span>{meeting.participants} participants</span>
+                      </div>
                     </div>
+                    <Button variant="ghost" size="sm">
+                      Join Meeting
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    Join Meeting
-                  </Button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -306,36 +271,43 @@ export function TeamDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {quickLinks.map((link) => (
-                <div
-                  key={link.id}
-                  className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors cursor-pointer"
-                >
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Video className="w-4 h-4 text-gray-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-0.5">
-                      <h4 className="text-sm text-gray-900">{link.title}</h4>
-                      {link.status && (
-                        <Badge className={getQuickLinkBadgeColor(link.status)} variant="secondary">
-                          {link.status}
-                        </Badge>
+            {quickLinks.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <ExternalLink className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No quick links available</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {quickLinks.map((link) => (
+                  <div
+                    key={link.id}
+                    className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Video className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-0.5">
+                        <h4 className="text-sm text-gray-900">{link.title}</h4>
+                        {link.status && (
+                          <Badge className={getQuickLinkBadgeColor(link.status)} variant="secondary">
+                            {link.status}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600">{link.subtitle}</p>
+                      {link.host && (
+                        <p className="text-xs text-gray-500 mt-1">Host: {link.host}</p>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600">{link.subtitle}</p>
-                    {link.host && (
-                      <p className="text-xs text-gray-500 mt-1">Host: {link.host}</p>
-                    )}
+                    <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                      Open
+                      <ExternalLink className="w-3 h-3" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                    Open
-                    <ExternalLink className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

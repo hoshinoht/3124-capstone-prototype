@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, CheckSquare, Package, MapPin, BookOpen, Bell, LogOut, User } from "lucide-react";
+import { Calendar, CheckSquare, Package, MapPin, BookOpen, Bell, LogOut, User, Users, FolderKanban } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
@@ -11,7 +11,9 @@ import { LocationTracker } from "./components/LocationTracker";
 import { QuickLinks } from "./components/QuickLinks";
 import { Glossary } from "./components/Glossary";
 import { NotificationCenter } from "./components/NotificationCenter";
-import { notificationsApi } from "./services/api";
+import { Personnel } from "./components/Personnel";
+import { Projects } from "./components/Projects";
+import { tasksApi, eventsApi, equipmentApi } from "./services/api";
 
 interface Notification {
   id: number;
@@ -25,40 +27,179 @@ export default function App() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: 1, message: "Urgent task: Server Migration due in 2 hours", type: "urgent", read: false },
-    { id: 2, message: "Equipment booking: Oscilloscope available tomorrow", type: "info", read: false },
-    { id: 3, message: "Meeting in 30 minutes: Client Sync", type: "meeting", read: false },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
 
-  // Fetch notifications from API when authenticated
+  // Generate notifications from tasks and events
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const generateNotifications = async () => {
       if (!isAuthenticated) return;
 
+      const generatedNotifications: Notification[] = [];
+      let notificationId = 1;
+
       try {
-        const data = await notificationsApi.getNotifications();
-        if (data && data.length > 0) {
-          setNotifications(data.map((n: any) => ({
-            id: n.id,
-            message: n.message || n.title,
-            type: n.type || "info",
-            read: n.read || n.is_read || false,
-            timestamp: n.created_at ? new Date(n.created_at) : undefined,
-          })));
+        // Fetch urgent/upcoming tasks
+        const tasksResponse = await tasksApi.getAll({ isCompleted: false });
+        if (tasksResponse.data?.tasks) {
+          const now = new Date();
+
+          tasksResponse.data.tasks.forEach((task: any) => {
+            const deadline = new Date(task.deadline);
+            const hoursUntilDeadline = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+            const taskKey = `task-${task.id}`;
+
+            // Skip dismissed notifications
+            if (dismissedNotifications.has(taskKey)) return;
+
+            // Urgent tasks or tasks due within 24 hours
+            if (task.urgency === 'urgent' || hoursUntilDeadline <= 24) {
+              let message = "";
+              if (hoursUntilDeadline <= 2 && hoursUntilDeadline > 0) {
+                message = `Urgent task: ${task.title} due in ${Math.round(hoursUntilDeadline * 60)} minutes`;
+              } else if (hoursUntilDeadline <= 24 && hoursUntilDeadline > 0) {
+                message = `Task deadline: ${task.title} due in ${Math.round(hoursUntilDeadline)} hours`;
+              } else if (hoursUntilDeadline <= 0) {
+                message = `Overdue task: ${task.title} was due ${Math.abs(Math.round(hoursUntilDeadline))} hours ago`;
+              } else if (task.urgency === 'urgent') {
+                message = `Urgent task: ${task.title} - ${task.description || 'No description'}`;
+              }
+
+              if (message) {
+                generatedNotifications.push({
+                  id: notificationId++,
+                  message,
+                  type: "urgent",
+                  read: false,
+                  timestamp: new Date(task.createdAt || task.created_at || now),
+                });
+              }
+            }
+          });
         }
       } catch (err) {
-        console.error("Failed to fetch notifications:", err);
-        // Keep default mock data
+        console.error("Failed to fetch tasks for notifications:", err);
       }
+
+      try {
+        // Fetch upcoming events/meetings
+        const today = new Date();
+        const nextWeek = new Date(today);
+        nextWeek.setDate(nextWeek.getDate() + 7);
+
+        const eventsResponse = await eventsApi.getAll({
+          startDate: today.toISOString().split('T')[0],
+          endDate: nextWeek.toISOString().split('T')[0],
+        });
+
+        if (eventsResponse.data?.events) {
+          const now = new Date();
+
+          eventsResponse.data.events.forEach((event: any) => {
+            const eventDate = new Date(`${event.eventDate || event.event_date}T${event.startTime || event.start_time}`);
+            const minutesUntilEvent = (eventDate.getTime() - now.getTime()) / (1000 * 60);
+            const eventKey = `event-${event.id}`;
+
+            // Skip dismissed notifications
+            if (dismissedNotifications.has(eventKey)) return;
+
+            // Events within the next 2 hours
+            if (minutesUntilEvent > 0 && minutesUntilEvent <= 120) {
+              const message = minutesUntilEvent <= 60
+                ? `Meeting in ${Math.round(minutesUntilEvent)} minutes: ${event.title}`
+                : `Upcoming meeting: ${event.title} at ${event.startTime || event.start_time}`;
+
+              generatedNotifications.push({
+                id: notificationId++,
+                message,
+                type: "meeting",
+                read: false,
+                timestamp: new Date(event.createdAt || event.created_at || now),
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch events for notifications:", err);
+      }
+
+      try {
+        // Fetch equipment bookings
+        const bookingsResponse = await equipmentApi.getMyBookings();
+        if (bookingsResponse.data?.bookings) {
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
+          bookingsResponse.data.bookings.forEach((booking: any) => {
+            const startDate = new Date(booking.startDate || booking.start_date);
+            const bookingKey = `booking-${booking.id}`;
+
+            // Skip dismissed notifications
+            if (dismissedNotifications.has(bookingKey)) return;
+
+            // Bookings starting tomorrow or today
+            if (startDate.toDateString() === tomorrow.toDateString()) {
+              generatedNotifications.push({
+                id: notificationId++,
+                message: `Equipment booking: ${booking.equipmentName || booking.equipment_name || 'Equipment'} available tomorrow`,
+                type: "info",
+                read: false,
+                timestamp: new Date(booking.createdAt || booking.created_at || now),
+              });
+            } else if (startDate.toDateString() === now.toDateString()) {
+              generatedNotifications.push({
+                id: notificationId++,
+                message: `Equipment ready: ${booking.equipmentName || booking.equipment_name || 'Equipment'} booking starts today`,
+                type: "shipping",
+                read: false,
+                timestamp: new Date(booking.createdAt || booking.created_at || now),
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch bookings for notifications:", err);
+      }
+
+      setNotifications(generatedNotifications);
     };
 
-    fetchNotifications();
-  }, [isAuthenticated]);
+    generateNotifications();
+
+    // Refresh notifications every 5 minutes
+    const interval = setInterval(generateNotifications, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, dismissedNotifications]);
+
+  // Handle notification updates (marking as read, dismissing)
+  const handleSetNotifications = (newNotifications: Notification[]) => {
+    // Track dismissed notifications (ones that were deleted)
+    const currentIds = new Set(notifications.map(n => n.id));
+    const newIds = new Set(newNotifications.map(n => n.id));
+
+    currentIds.forEach(id => {
+      if (!newIds.has(id)) {
+        // This notification was removed, track it
+        const notification = notifications.find(n => n.id === id);
+        if (notification) {
+          // Create a key based on the message to prevent regeneration
+          const key = notification.message.includes('task:') ? `task-dismissed-${id}` :
+            notification.message.includes('Meeting') ? `event-dismissed-${id}` :
+              `booking-dismissed-${id}`;
+          setDismissedNotifications(prev => new Set([...prev, key]));
+        }
+      }
+    });
+
+    setNotifications(newNotifications);
+  };
 
   const navigationItems = [
     { id: "dashboard", label: "Dashboard", icon: Calendar },
     { id: "tasks", label: "Tasks", icon: CheckSquare },
+    { id: "projects", label: "Projects", icon: FolderKanban },
+    { id: "personnel", label: "Personnel", icon: Users },
     { id: "equipment", label: "Equipment", icon: Package },
     { id: "location", label: "Location", icon: MapPin },
     { id: "glossary", label: "Glossary", icon: BookOpen },
@@ -167,13 +308,15 @@ export default function App() {
         <div className="space-y-6">
           {activeTab === "dashboard" && <TeamDashboard />}
           {activeTab === "tasks" && <TaskManagement />}
+          {activeTab === "projects" && <Projects />}
+          {activeTab === "personnel" && <Personnel />}
           {activeTab === "equipment" && <EquipmentBooking />}
           {activeTab === "location" && <LocationTracker />}
           {activeTab === "glossary" && <Glossary />}
           {activeTab === "notifications" && (
             <NotificationCenter
               notifications={notifications}
-              setNotifications={setNotifications}
+              setNotifications={handleSetNotifications}
             />
           )}
         </div>

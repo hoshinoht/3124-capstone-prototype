@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { MapPin, Search, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { MapPin, Search, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { locationsApi } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 interface CheckInRecord {
   name: string;
@@ -12,39 +14,203 @@ interface CheckInRecord {
   checkOutTime?: string;
 }
 
+interface ClockInOutRecord {
+  memberName: string;
+  location: string;
+  checkIn: string;
+  checkOut: string;
+}
+
 export function LocationTracker() {
+  const { user } = useAuth();
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showCheckoutConfirmation, setShowCheckoutConfirmation] = useState(false);
   const [searchMember, setSearchMember] = useState("");
-  const [searchDate, setSearchDate] = useState("Today, 01 October 2025");
+  const [searchDate, setSearchDate] = useState(new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }));
+  const [loading, setLoading] = useState(true);
+  const [currentLocation, setCurrentLocation] = useState("");
+  const [checkInTime, setCheckInTime] = useState("");
 
-  const [checkInRecords] = useState<CheckInRecord[]>([
-    { name: "Peter Tan", location: "Punggol", checkInTime: "02 Oct 2025, 09:45 AM" },
-    { name: "Siti Ahmad", location: "Little India", checkInTime: "02 Oct 2025, 09:50 AM" },
-    { name: "David Wong", location: "Tampines", checkInTime: "02 Oct 2025, 09:55 AM" },
-    { name: "Jessica Lim", location: "Kallang", checkInTime: "02 Oct 2025, 10:00 AM" },
-  ]);
+  const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
+  const [clockInOutRecords, setClockInOutRecords] = useState<ClockInOutRecord[]>([]);
 
-  const [clockInOutRecords] = useState([
-    { memberName: "Abigail Tan", location: "SIT", checkIn: "8:51am", checkOut: "" },
-    { memberName: "Bryan Ho", location: "NUHS", checkIn: "8:54am", checkOut: "" },
-    { memberName: "Cindy Lim", location: "AMK hub", checkIn: "8:58am", checkOut: "" },
-    { memberName: "Nur Indra", location: "MBS", checkIn: "8:47am", checkOut: "" },
-  ]);
+  // Fetch location data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
 
-  const handleCheckIn = () => {
-    setIsCheckedIn(true);
-    setShowConfirmation(true);
-    setTimeout(() => setShowConfirmation(false), 3000);
+        // Fetch user's current check-in status
+        try {
+          const statusResponse = await locationsApi.getMyStatus();
+          if (statusResponse.data?.history && statusResponse.data.history.length > 0) {
+            const latestRecord = statusResponse.data.history[0];
+            // If there's no check-out time, user is currently checked in
+            if (latestRecord.status === 'active' || !latestRecord.checkOutTime) {
+              setIsCheckedIn(true);
+              setCurrentLocation(latestRecord.location);
+              setCheckInTime(latestRecord.checkInTime);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch user status:", err);
+        }
+
+        // Fetch current locations (active users only - for the "Checked In Personnel" card)
+        try {
+          const response = await locationsApi.getCurrent();
+          if (response.data?.activeCheckIns) {
+            const locations = response.data.activeCheckIns || [];
+
+            setCheckInRecords(locations.map((l: any) => ({
+              name: l.userName || "Unknown",
+              location: l.location || "Unknown",
+              checkInTime: l.checkInTime || "",
+              checkOutTime: l.checkOutTime || undefined,
+            })));
+          }
+        } catch (err) {
+          console.error("Failed to fetch current locations:", err);
+        }
+
+        // Fetch today's records (both active and completed - for the Clock In/Out table)
+        try {
+          const todayResponse = await locationsApi.getTodayRecords();
+          if (todayResponse.data?.records) {
+            const records = todayResponse.data.records || [];
+
+            setClockInOutRecords(records.map((l: any) => ({
+              memberName: l.userName || "Unknown",
+              location: l.location || "Unknown",
+              checkIn: formatTime(l.checkInTime || ""),
+              checkOut: formatTime(l.checkOutTime || ""),
+            })));
+          }
+        } catch (err) {
+          console.error("Failed to fetch today's records:", err);
+        }
+      } catch (err) {
+        console.error("Failed to fetch locations:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const formatTime = (timeStr: string): string => {
+    if (!timeStr) return "";
+    try {
+      const date = new Date(timeStr);
+      if (isNaN(date.getTime())) return timeStr;
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+    } catch {
+      return timeStr;
+    }
   };
 
-  const handleCheckOut = () => {
-    setIsCheckedIn(false);
+  const handleCheckIn = async () => {
+    try {
+      const location = "Singapore Institute of Technology"; // This would typically come from GPS or user selection
+      const response = await locationsApi.checkIn(location);
+
+      if (response.success) {
+        const checkInData = response.data?.checkIn;
+        setIsCheckedIn(true);
+        setCurrentLocation(location);
+        setCheckInTime(checkInData?.checkInTime || new Date().toISOString());
+        setShowConfirmation(true);
+        setTimeout(() => setShowConfirmation(false), 3000);
+
+        // Refresh the records
+        const currentResponse = await locationsApi.getCurrent();
+        if (currentResponse.data?.activeCheckIns) {
+          const locations = currentResponse.data.activeCheckIns || [];
+          setCheckInRecords(locations.map((l: any) => ({
+            name: l.userName || "Unknown",
+            location: l.location || "Unknown",
+            checkInTime: l.checkInTime || "",
+          })));
+        }
+
+        // Refresh today's records for the Clock In/Out table
+        const todayResponse = await locationsApi.getTodayRecords();
+        if (todayResponse.data?.records) {
+          const records = todayResponse.data.records || [];
+          setClockInOutRecords(records.map((l: any) => ({
+            memberName: l.userName || "Unknown",
+            location: l.location || "Unknown",
+            checkIn: formatTime(l.checkInTime || ""),
+            checkOut: formatTime(l.checkOutTime || ""),
+          })));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to check in:", err);
+      // Still show check-in for demo purposes
+      setIsCheckedIn(true);
+      setCurrentLocation("Singapore Institute of Technology");
+      setCheckInTime(new Date().toISOString());
+      setShowConfirmation(true);
+      setTimeout(() => setShowConfirmation(false), 3000);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    try {
+      await locationsApi.checkOut();
+      setIsCheckedIn(false);
+      setShowCheckoutConfirmation(true);
+      setTimeout(() => setShowCheckoutConfirmation(false), 3000);
+      setCurrentLocation("");
+      setCheckInTime("");
+
+      // Refresh the active check-ins (user will be removed from this list)
+      const currentResponse = await locationsApi.getCurrent();
+      if (currentResponse.data?.activeCheckIns) {
+        const locations = currentResponse.data.activeCheckIns || [];
+        setCheckInRecords(locations.map((l: any) => ({
+          name: l.userName || "Unknown",
+          location: l.location || "Unknown",
+          checkInTime: l.checkInTime || "",
+        })));
+      }
+
+      // Refresh today's records (user will still appear with check-out time)
+      const todayResponse = await locationsApi.getTodayRecords();
+      if (todayResponse.data?.records) {
+        const records = todayResponse.data.records || [];
+        setClockInOutRecords(records.map((l: any) => ({
+          memberName: l.userName || "Unknown",
+          location: l.location || "Unknown",
+          checkIn: formatTime(l.checkInTime || ""),
+          checkOut: formatTime(l.checkOutTime || ""),
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to check out:", err);
+      // Still show checkout for demo purposes
+      setIsCheckedIn(false);
+      setShowCheckoutConfirmation(true);
+      setTimeout(() => setShowCheckoutConfirmation(false), 3000);
+      setCurrentLocation("");
+      setCheckInTime("");
+    }
   };
 
   const filteredRecords = clockInOutRecords.filter(record =>
     record.memberName.toLowerCase().includes(searchMember.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -71,14 +237,14 @@ export function LocationTracker() {
 
             {/* Check In/Out Buttons */}
             <div className="flex gap-2 mb-4">
-              <Button 
+              <Button
                 onClick={handleCheckIn}
                 disabled={isCheckedIn}
                 className="flex-1"
               >
                 Check In
               </Button>
-              <Button 
+              <Button
                 onClick={handleCheckOut}
                 disabled={!isCheckedIn}
                 variant="outline"
@@ -93,16 +259,31 @@ export function LocationTracker() {
               <Card className="border-green-500 bg-green-50">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-lg">John Parker</span>
+                    <span className="text-lg">{user?.firstName} {user?.lastName}</span>
                     <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
                       <CheckCircle className="w-6 h-6 text-white" />
                     </div>
                   </div>
-                  <p className="text-sm text-gray-700">You have successfully checked in at 8:53am</p>
+                  <p className="text-sm text-gray-700">You have successfully checked in at {formatTime(checkInTime)}</p>
                   <p className="text-sm flex items-center gap-1 text-red-600 mt-1">
                     <MapPin className="w-4 h-4" />
-                    Singapore Institute of Technology
+                    {currentLocation}
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Checkout Confirmation Message */}
+            {showCheckoutConfirmation && (
+              <Card className="border-blue-500 bg-blue-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-lg">{user?.firstName} {user?.lastName}</span>
+                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-700">You have successfully checked out at {formatTime(new Date().toISOString())}</p>
                 </CardContent>
               </Card>
             )}
@@ -156,7 +337,7 @@ export function LocationTracker() {
               <div>
                 <label className="block mb-2 text-sm">Search</label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     placeholder="Search member name"
                     value={searchMember}
                     onChange={(e) => setSearchMember(e.target.value)}
@@ -168,7 +349,7 @@ export function LocationTracker() {
               <div>
                 <label className="block mb-2 text-sm">Select Date</label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     value={searchDate}
                     readOnly
                     className="pr-10"

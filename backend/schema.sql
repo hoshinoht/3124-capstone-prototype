@@ -15,6 +15,8 @@ DROP TABLE IF EXISTS bookings;
 DROP TABLE IF EXISTS equipment;
 DROP TABLE IF EXISTS task_history;
 DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS project_members;
+DROP TABLE IF EXISTS projects;
 DROP TABLE IF EXISTS event_attendees;
 DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS sessions;
@@ -57,6 +59,36 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+
+-- 2. Projects
+
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'archived')),
+    created_by TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+CREATE INDEX IF NOT EXISTS idx_projects_created_by ON projects(created_by);
+
+CREATE TABLE IF NOT EXISTS project_members (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
+    added_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (project_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
 
 -- 2. Calendar & Events
 
@@ -109,12 +141,14 @@ CREATE TABLE IF NOT EXISTS tasks (
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in-progress', 'completed')),
     is_completed INTEGER DEFAULT 0,
     department TEXT NOT NULL CHECK (department IN ('IT', 'Engineering', 'Both')),
+    project_id TEXT,
     assignee_id TEXT,
     created_by TEXT NOT NULL,
     deadline TEXT NOT NULL,
     completed_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
     FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
@@ -124,6 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(is_completed);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline);
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
 
 CREATE TABLE IF NOT EXISTS task_history (
     id TEXT PRIMARY KEY,
@@ -194,6 +229,7 @@ CREATE TABLE IF NOT EXISTS check_in_records (
     check_out_time TEXT,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -203,8 +239,8 @@ CREATE INDEX IF NOT EXISTS idx_checkin_location ON check_in_records(location);
 
 CREATE TABLE IF NOT EXISTS user_locations (
     user_id TEXT PRIMARY KEY,
-    current_location TEXT,
-    check_in_time TEXT,
+    location TEXT,
+    last_check_in TEXT,
     is_checked_in INTEGER DEFAULT 0,
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -367,3 +403,34 @@ VALUES
     ('4f9e6679-7425-40de-944b-e07fc1f90af4', 'API', 'Application Programming Interface', 'A set of protocols and tools for building software applications', '5f9e6679-7425-40de-944b-e07fc1f90af5', '550e8400-e29b-41d4-a716-446655440000', 1),
     ('8f9e6679-7425-40de-944b-e07fc1f90af8', 'HVAC', 'Heating, Ventilation, and Air Conditioning', 'System for regulating indoor climate', '6f9e6679-7425-40de-944b-e07fc1f90af6', '550e8400-e29b-41d4-a716-446655440000', 1),
     ('9f9e6679-7425-40de-944b-e07fc1f90af9', 'DNS', 'Domain Name System', 'Hierarchical naming system for computers and services', '7f9e6679-7425-40de-944b-e07fc1f90af7', '550e8400-e29b-41d4-a716-446655440000', 1);
+
+-- Insert sample tasks
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, assignee_id, created_by, deadline)
+VALUES 
+    ('af9e6679-7425-40de-944b-e07fc1f90b00', 'Server Migration', 'Migrate production servers to new data center', 'urgent', 'in-progress', 0, 'IT', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '+2 days')),
+    ('bf9e6679-7425-40de-944b-e07fc1f90b01', 'Network Security Audit', 'Perform quarterly security audit', 'high', 'pending', 0, 'IT', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '+7 days')),
+    ('cf9e6679-7425-40de-944b-e07fc1f90b02', 'HVAC System Maintenance', 'Routine maintenance on building HVAC', 'medium', 'pending', 0, 'Engineering', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '+14 days')),
+    ('df9e6679-7425-40de-944b-e07fc1f90b03', 'Update Documentation', 'Update API documentation for new endpoints', 'low', 'completed', 1, 'IT', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '-1 days'));
+
+-- Insert sample events
+INSERT OR IGNORE INTO events (id, title, description, event_type, event_date, start_time, end_time, location, created_by, department)
+VALUES 
+    ('1f9e6679-7425-40de-944b-e07fc1f90c00', 'Team Standup', 'Daily standup meeting', 'meeting', date('now'), '09:00', '09:30', 'Conference Room A', '550e8400-e29b-41d4-a716-446655440000', 'Both'),
+    ('2f9e6679-7425-40de-944b-e07fc1f90c01', 'Sprint Review', 'End of sprint review meeting', 'meeting', date('now', '+3 days'), '14:00', '15:30', 'Conference Room B', '550e8400-e29b-41d4-a716-446655440000', 'IT'),
+    ('3f9e6679-7425-40de-944b-e07fc1f90c02', 'Server Maintenance Window', 'Scheduled maintenance', 'deadline', date('now', '+5 days'), '22:00', '02:00', NULL, '550e8400-e29b-41d4-a716-446655440000', 'IT'),
+    ('4f9e6679-7425-40de-944b-e07fc1f90c03', 'Equipment Delivery', 'New oscilloscope delivery', 'delivery', date('now', '+7 days'), '10:00', '12:00', 'Loading Dock', '550e8400-e29b-41d4-a716-446655440000', 'Engineering');
+
+-- Insert sample quick links
+INSERT OR IGNORE INTO quick_links (id, title, url, description, created_by, department, is_active)
+VALUES 
+    ('1a9e6679-7425-40de-944b-e07fc1f90d00', 'Jira Board', 'https://jira.company.com', 'Project management', '550e8400-e29b-41d4-a716-446655440000', 'Both', 1),
+    ('2a9e6679-7425-40de-944b-e07fc1f90d01', 'Confluence Wiki', 'https://wiki.company.com', 'Documentation', '550e8400-e29b-41d4-a716-446655440000', 'Both', 1),
+    ('3a9e6679-7425-40de-944b-e07fc1f90d02', 'GitHub', 'https://github.com/company', 'Code repository', '550e8400-e29b-41d4-a716-446655440000', 'IT', 1),
+    ('4a9e6679-7425-40de-944b-e07fc1f90d03', 'Monitoring Dashboard', 'https://grafana.company.com', 'System monitoring', '550e8400-e29b-41d4-a716-446655440000', 'IT', 1);
+
+-- Insert sample notifications
+INSERT OR IGNORE INTO notifications (id, user_id, type, title, message, is_read)
+VALUES 
+    ('1b9e6679-7425-40de-944b-e07fc1f90e00', '550e8400-e29b-41d4-a716-446655440000', 'urgent', 'Urgent Task', 'Server Migration due in 2 hours', 0),
+    ('2b9e6679-7425-40de-944b-e07fc1f90e01', '550e8400-e29b-41d4-a716-446655440000', 'info', 'Equipment Available', 'Oscilloscope available tomorrow', 0),
+    ('3b9e6679-7425-40de-944b-e07fc1f90e02', '550e8400-e29b-41d4-a716-446655440000', 'meeting', 'Meeting Reminder', 'Team standup in 30 minutes', 0);

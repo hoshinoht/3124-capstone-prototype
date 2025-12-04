@@ -361,8 +361,22 @@ async fn get_my_bookings(
         }
     };
 
+    // Get user info
+    let user = sqlx::query_as::<_, (String, String, String)>(
+        "SELECT first_name, last_name, department FROM users WHERE id = ?",
+    )
+    .bind(&user_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let (first_name, last_name, _user_department) = user.ok().flatten().unwrap_or((
+        "Unknown".to_string(),
+        "User".to_string(),
+        "IT".to_string(),
+    ));
+
     let mut sql = String::from(
-        "SELECT b.id, b.equipment_id, b.user_id, b.department, b.start_date, b.end_date, b.purpose, b.status, b.created_at, b.updated_at, b.cancelled_at FROM bookings b WHERE b.user_id = ?",
+        "SELECT b.id, b.equipment_id, b.user_id, b.department, b.start_date, b.end_date, b.purpose, b.status, b.created_at, b.updated_at, b.cancelled_at, e.name as equipment_name FROM bookings b LEFT JOIN equipment e ON b.equipment_id = e.id WHERE b.user_id = ?",
     );
 
     if let Some(ref status) = query.status {
@@ -375,24 +389,43 @@ async fn get_my_bookings(
 
     sql.push_str(" ORDER BY b.start_date");
 
-    let result = sqlx::query_as::<_, Booking>(&sql)
-        .bind(&user_id)
-        .fetch_all(pool.get_ref())
-        .await;
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(&sql)
+    .bind(&user_id)
+    .fetch_all(pool.get_ref())
+    .await;
 
     match result {
         Ok(bookings) => {
             let bookings_json: Vec<serde_json::Value> = bookings
                 .iter()
-                .map(|b| {
+                .map(|(id, equipment_id, _user_id, department, start_date, end_date, purpose, status, created_at, _updated_at, _cancelled_at, equipment_name)| {
                     serde_json::json!({
-                        "id": b.id,
-                        "equipmentId": b.equipment_id,
-                        "startDate": b.start_date,
-                        "endDate": b.end_date,
-                        "purpose": b.purpose,
-                        "status": b.status,
-                        "createdAt": b.created_at
+                        "id": id,
+                        "equipmentId": equipment_id,
+                        "equipmentName": equipment_name.clone().unwrap_or_else(|| "Unknown".to_string()),
+                        "bookedBy": format!("{} {}", first_name, last_name),
+                        "department": department,
+                        "startDate": start_date,
+                        "endDate": end_date,
+                        "purpose": purpose,
+                        "status": status,
+                        "createdAt": created_at
                     })
                 })
                 .collect();

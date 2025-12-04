@@ -27,248 +27,7 @@ export function Glossary() {
     category: "IT" as "IT" | "Engineering" | "General",
   });
 
-  const [terms, setTerms] = useState<GlossaryTerm[]>([
-    {
-      id: 1,
-      term: "API",
-      definition: "Application Programming Interface - A set of protocols and tools that allows different software applications to communicate with each other.",
-      category: "IT",
-    },
-    {
-      id: 2,
-      term: "CI/CD",
-      definition: "Continuous Integration/Continuous Deployment - A method to frequently deliver apps to customers by introducing automation into the stages of app development.",
-      category: "IT",
-    },
-    {
-      id: 3,
-      term: "REST",
-      definition: "Representational State Transfer - An architectural style for designing networked applications, relying on stateless, client-server communication.",
-      category: "IT",
-    },
-    {
-      id: 4,
-      term: "SAT",
-      definition: "Supply Air Temperature - The temperature of air being delivered by an HVAC system to a conditioned space.",
-      category: "Engineering",
-    },
-    {
-      id: 5,
-      term: "PAD",
-      definition: "Pre-Cool Air Damper - A damper that controls the flow of pre-cooled air in HVAC systems to regulate temperature.",
-      category: "Engineering",
-    },
-    {
-      id: 6,
-      term: "CDWR",
-      definition: "Condenser Water Return Temperature - The temperature of water returning from the condenser in a cooling system.",
-      category: "Engineering",
-    },
-    {
-      id: 7,
-      term: "SCADA",
-      definition: "Supervisory Control and Data Acquisition - A system for remote monitoring and control of industrial processes.",
-      category: "IT",
-    },
-    {
-      id: 8,
-      term: "PLC",
-      definition: "Programmable Logic Controller - A digital computer used for automation of industrial processes.",
-      category: "Engineering",
-    },
-    {
-      id: 9,
-      term: "RAT",
-      definition: "Return Air Temperature - The temperature of air returning to the HVAC system from the conditioned space.",
-      category: "Engineering",
-    },
-    {
-      id: 10,
-      term: "VPN",
-      definition: "Virtual Private Network - A secure connection between networks over the internet.",
-      category: "IT",
-    },
-    {
-      id: 11,
-      term: "OAT",
-      definition: "Outdoor Air Temperature - The temperature of air outside the building.",
-      category: "Engineering",
-    },
-    {
-      id: 12,
-      term: "SSH",
-      definition: "Secure Shell - A protocol for secure remote login and other secure network services.",
-      category: "IT",
-    },
-    {
-      id: 13,
-      term: "AHU",
-      definition: "Air Handling Unit - A device used to condition and circulate air as part of an HVAC system.",
-      category: "Engineering",
-    },
-    {
-      id: 14,
-      term: "JWT",
-      definition: "JSON Web Token - A compact, URL-safe means of representing claims to be transferred between parties.",
-      category: "IT",
-    },
-    {
-      id: 15,
-      term: "VAV",
-      definition: "Variable Air Volume - A type of HVAC system that varies the airflow at a constant temperature.",
-      category: "Engineering",
-    },
-    {
-      id: 16,
-      term: "DNS",
-      definition: "Domain Name System - The system that translates domain names to IP addresses.",
-      category: "IT",
-    },
-    {
-      id: 17,
-      term: "FCU",
-      definition: "Fan Coil Unit - A device consisting of a heating/cooling coil and fan used to serve individual zones.",
-      category: "Engineering",
-    },
-    {
-      id: 18,
-      term: "SQL",
-      definition: "Structured Query Language - A standard language for managing and manipulating databases.",
-      category: "IT",
-    },
-    {
-      id: 19,
-      term: "HMI",
-      definition: "Human-Machine Interface - A user interface that connects a person to a machine or system.",
-      category: "Engineering",
-    },
-    {
-      id: 20,
-      term: "HTTPS",
-      definition: "Hypertext Transfer Protocol Secure - An extension of HTTP for secure communication over networks.",
-      category: "IT",
-    },
-    {
-      id: 21,
-      term: "MAT",
-      definition: "Mixed Air Temperature - The temperature of air after outdoor and return air have been mixed.",
-      category: "Engineering",
-    },
-    {
-      id: 22,
-      term: "IoT",
-      definition: "Internet of Things - The network of physical devices embedded with electronics and connectivity.",
-      category: "IT",
-    },
-    {
-      id: 23,
-      term: "DP",
-      definition: "Differential Pressure - The difference in pressure between two points in a system.",
-      category: "Engineering",
-    },
-    {
-      id: 24,
-      term: "OAuth",
-      definition: "Open Authorization - An open standard for access delegation commonly used for token-based authentication.",
-      category: "IT",
-    },
-    {
-      id: 25,
-      term: "BMS",
-      definition: "Building Management System - A computer-based control system for monitoring and managing building systems.",
-      category: "Engineering",
-    },
-    {
-      id: 26,
-      term: "CDN",
-      definition: "Content Delivery Network - A geographically distributed network of servers for fast content delivery.",
-      category: "IT",
-    },
-    {
-      id: 27,
-      term: "VFD",
-      definition: "Variable Frequency Drive - A device that controls the speed of an electric motor by varying frequency.",
-      category: "Engineering",
-    },
-    {
-      id: 28,
-      term: "CORS",
-      definition: "Cross-Origin Resource Sharing - A mechanism that allows restricted resources to be requested from another domain.",
-      category: "IT",
-    },
-    {
-      id: 29,
-      term: "CWST",
-      definition: "Chilled Water Supply Temperature - The temperature of chilled water supplied by a chiller.",
-      category: "Engineering",
-    },
-    {
-      id: 30,
-      term: "WebSocket",
-      definition: "A communication protocol providing full-duplex communication channels over a single TCP connection.",
-      category: "IT",
-    },
-    {
-      id: 31,
-      term: "SLA",
-      definition: "Service Level Agreement - A commitment between a service provider and a client.",
-      category: "General",
-    },
-    {
-      id: 32,
-      term: "KPI",
-      definition: "Key Performance Indicator - A measurable value that demonstrates effectiveness in achieving objectives.",
-      category: "General",
-    },
-    {
-      id: 33,
-      term: "RMA",
-      definition: "Return Merchandise Authorization - Permission to return a product for repair or replacement.",
-      category: "General",
-    },
-    {
-      id: 34,
-      term: "ETA",
-      definition: "Estimated Time of Arrival - The expected time when something will arrive.",
-      category: "General",
-    },
-    {
-      id: 35,
-      term: "SOW",
-      definition: "Statement of Work - A document defining project-specific activities and deliverables.",
-      category: "General",
-    },
-    {
-      id: 36,
-      term: "POC",
-      definition: "Proof of Concept - A realization of a method to demonstrate feasibility.",
-      category: "General",
-    },
-    {
-      id: 37,
-      term: "QA",
-      definition: "Quality Assurance - A way of preventing mistakes and defects in products and services.",
-      category: "General",
-    },
-    {
-      id: 38,
-      term: "ROI",
-      definition: "Return on Investment - A measure of the profitability of an investment.",
-      category: "General",
-    },
-    {
-      id: 39,
-      term: "SOP",
-      definition: "Standard Operating Procedure - A set of step-by-step instructions to help workers carry out operations.",
-      category: "General",
-    },
-    {
-      id: 40,
-      term: "FAT",
-      definition: "Factory Acceptance Test - Testing conducted at the manufacturer's site to verify equipment meets specifications.",
-      category: "General",
-    },
-  ]);
+  const [terms, setTerms] = useState<GlossaryTerm[]>([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -276,18 +35,17 @@ export function Glossary() {
     const fetchGlossary = async () => {
       try {
         setLoading(true);
-        const data = await glossaryApi.getTerms();
-        if (data && data.length > 0) {
-          setTerms(data.map((t: any) => ({
+        const response = await glossaryApi.getTerms();
+        if (response.data?.terms) {
+          setTerms(response.data.terms.map((t: any) => ({
             id: t.id,
-            term: t.term,
+            term: t.acronym || t.term,
             definition: t.definition,
             category: t.category || "General",
           })));
         }
       } catch (err) {
         console.error("Failed to fetch glossary:", err);
-        // Keep default mock data
       } finally {
         setLoading(false);
       }
@@ -326,16 +84,19 @@ export function Glossary() {
     setShowAddDialog(false);
 
     try {
-      const createdTerm = await glossaryApi.createTerm({
+      const response = await glossaryApi.createTerm({
         term: newTerm.term,
         definition: newTerm.definition,
-        category: newTerm.category,
+        categoryId: newTerm.category,
+        department: newTerm.category === "IT" ? "IT" : newTerm.category === "Engineering" ? "Engineering" : "Both",
       });
 
-      // Update with real ID
-      setTerms(prev => prev.map(t =>
-        t.id === tempId ? { ...t, id: createdTerm.id } : t
-      ));
+      // Update with real ID from response
+      if (response.data?.term) {
+        setTerms(prev => prev.map(t =>
+          t.id === tempId ? { ...t, id: response.data.term.id } : t
+        ));
+      }
     } catch (err) {
       console.error("Failed to create term:", err);
       // Remove on error

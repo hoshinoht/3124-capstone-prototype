@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Search, Calendar as CalendarIcon, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Calendar as CalendarIcon, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Alert, AlertDescription } from "./ui/alert";
+import { equipmentApi } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 interface Equipment {
   id: number;
@@ -28,52 +30,72 @@ interface Booking {
 }
 
 export function EquipmentBooking() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [showBookDialog, setShowBookDialog] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [conflictWarning, setConflictWarning] = useState<string>("");
+  const [loading, setLoading] = useState(true);
 
-  const [equipment] = useState<Equipment[]>([
-    { id: 1, name: "Oscilloscope OSC-2000", category: "Testing", location: "Lab 3", status: "available" },
-    { id: 2, name: "Network Analyzer NA-500", category: "Testing", location: "Lab 1", status: "booked" },
-    { id: 3, name: "Laptop - Dell XPS 15", category: "Computing", location: "IT Storage", status: "available" },
-    { id: 4, name: "Multimeter DMM-100", category: "Testing", location: "Lab 3", status: "available" },
-    { id: 5, name: "Cisco Switch 48-Port", category: "Networking", location: "Server Room", status: "in-use" },
-    { id: 6, name: "Spectrum Analyzer SA-2500", category: "Testing", location: "Lab 2", status: "maintenance" },
-    { id: 7, name: "Thermal Camera TC-300", category: "Inspection", location: "Lab 1", status: "available" },
-    { id: 8, name: "Cable Tester CT-800", category: "Networking", location: "IT Storage", status: "booked" },
-  ]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
 
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: 1,
-      equipmentId: 2,
-      equipmentName: "Network Analyzer NA-500",
-      bookedBy: "Sarah Chen",
-      department: "Engineering",
-      startDate: "2024-09-08",
-      endDate: "2024-09-12",
-      purpose: "Network performance testing for Building B",
-    },
-    {
-      id: 2,
-      equipmentId: 8,
-      equipmentName: "Cable Tester CT-800",
-      bookedBy: "Mike Johnson",
-      department: "IT",
-      startDate: "2024-09-10",
-      endDate: "2024-09-15",
-      purpose: "New cable installation verification",
-    },
-  ]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
   const [newBooking, setNewBooking] = useState({
-    bookedBy: "",
-    department: "IT",
     startDate: "",
     endDate: "",
     purpose: "",
   });
+
+  // Fetch equipment and bookings from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch equipment
+        try {
+          const response = await equipmentApi.getAll();
+          if (response.data?.equipment) {
+            setEquipment(response.data.equipment.map((e: any) => ({
+              id: e.id,
+              name: e.name,
+              category: e.category || "General",
+              location: e.location || "Unknown",
+              status: e.status || "available",
+            })));
+          }
+        } catch (err) {
+          console.error("Failed to fetch equipment:", err);
+        }
+
+        // Fetch user's bookings
+        try {
+          const response = await equipmentApi.getMyBookings();
+          if (response.data?.bookings) {
+            setBookings(response.data.bookings.map((b: any) => ({
+              id: b.id,
+              equipmentId: b.equipment_id || b.equipmentId,
+              equipmentName: b.equipment_name || b.equipmentName || "Unknown",
+              bookedBy: b.booked_by || b.bookedBy || "Unknown",
+              department: b.department || "IT",
+              startDate: b.start_date || b.startDate || "",
+              endDate: b.end_date || b.endDate || "",
+              purpose: b.purpose || "",
+            })));
+          }
+        } catch (err) {
+          console.error("Failed to fetch bookings:", err);
+        }
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredEquipment = equipment.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -99,7 +121,7 @@ export function EquipmentBooking() {
   const checkConflict = (equipmentId: number, startDate: string, endDate: string) => {
     const conflicts = bookings.filter(booking => {
       if (booking.equipmentId !== equipmentId) return false;
-      
+
       const bookingStart = new Date(booking.startDate);
       const bookingEnd = new Date(booking.endDate);
       const newStart = new Date(startDate);
@@ -120,55 +142,124 @@ export function EquipmentBooking() {
     setConflictWarning("");
   };
 
-  const handleDateChange = (field: "startDate" | "endDate", value: string) => {
-    setNewBooking({ ...newBooking, [field]: value });
-    
-    if (selectedEquipment && newBooking.startDate && newBooking.endDate) {
-      const start = field === "startDate" ? value : newBooking.startDate;
-      const end = field === "endDate" ? value : newBooking.endDate;
-      
-      const conflicts = checkConflict(selectedEquipment.id, start, end);
-      if (conflicts.length > 0) {
-        const conflict = conflicts[0];
-        setConflictWarning(
-          `Warning: This equipment is already booked by ${conflict.bookedBy} from ${conflict.startDate} to ${conflict.endDate}`
+  const handleDateChange = async (field: "startDate" | "endDate", value: string) => {
+    const updatedBooking = { ...newBooking, [field]: value };
+    setNewBooking(updatedBooking);
+
+    const start = field === "startDate" ? value : newBooking.startDate;
+    const end = field === "endDate" ? value : newBooking.endDate;
+
+    if (selectedEquipment && start && end) {
+      try {
+        // Use API to check availability
+        const response = await equipmentApi.checkAvailability(
+          String(selectedEquipment.id),
+          start,
+          end
         );
-      } else {
-        setConflictWarning("");
+
+        if (!response.data.isAvailable && response.data.conflicts.length > 0) {
+          const conflict = response.data.conflicts[0];
+          setConflictWarning(
+            `Warning: This equipment is already booked from ${conflict.startDate} to ${conflict.endDate}`
+          );
+        } else {
+          setConflictWarning("");
+        }
+      } catch (err) {
+        console.error("Failed to check availability:", err);
+        // Fallback to local conflict detection
+        const conflicts = checkConflict(selectedEquipment.id, start, end);
+        if (conflicts.length > 0) {
+          const conflict = conflicts[0];
+          setConflictWarning(
+            `Warning: This equipment is already booked by ${conflict.bookedBy} from ${conflict.startDate} to ${conflict.endDate}`
+          );
+        } else {
+          setConflictWarning("");
+        }
       }
     }
   };
 
-  const handleSubmitBooking = () => {
+  const handleSubmitBooking = async () => {
     if (!selectedEquipment || conflictWarning) return;
 
+    const tempId = Date.now();
+    const userName = user ? `${user.firstName} ${user.lastName}` : "Unknown";
     const booking: Booking = {
-      id: bookings.length + 1,
+      id: tempId,
       equipmentId: selectedEquipment.id,
       equipmentName: selectedEquipment.name,
-      ...newBooking,
+      bookedBy: userName,
+      department: user?.department || "IT",
+      startDate: newBooking.startDate,
+      endDate: newBooking.endDate,
+      purpose: newBooking.purpose,
     };
 
+    // Optimistic update
     setBookings([...bookings, booking]);
     setShowBookDialog(false);
     setNewBooking({
-      bookedBy: "",
-      department: "IT",
       startDate: "",
       endDate: "",
       purpose: "",
     });
     setSelectedEquipment(null);
     setConflictWarning("");
+
+    try {
+      const response = await equipmentApi.createBooking(
+        String(selectedEquipment.id),
+        {
+          startDate: newBooking.startDate,
+          endDate: newBooking.endDate,
+          purpose: newBooking.purpose,
+        }
+      );
+
+      if (response.data?.booking) {
+        // Update booking with server response data
+        setBookings(prev => prev.map(b =>
+          b.id === tempId ? {
+            ...b,
+            id: response.data.booking.id,
+            bookedBy: response.data.booking.bookedBy || b.bookedBy,
+            department: response.data.booking.department || b.department,
+          } : b
+        ));
+      }
+    } catch (err) {
+      console.error("Failed to create booking:", err);
+      // Revert optimistic update on error
+      setBookings(prev => prev.filter(b => b.id !== tempId));
+    }
   };
 
-  const handleCancelBooking = (bookingId: number) => {
+  const handleCancelBooking = async (bookingId: number) => {
+    const originalBookings = [...bookings];
     setBookings(bookings.filter(b => b.id !== bookingId));
+
+    try {
+      await equipmentApi.cancelBooking(String(bookingId));
+    } catch (err) {
+      console.error("Failed to cancel booking:", err);
+      setBookings(originalBookings);
+    }
   };
 
   const getEquipmentBookings = (equipmentId: number) => {
     return bookings.filter(b => b.equipmentId === equipmentId);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -197,7 +288,7 @@ export function EquipmentBooking() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredEquipment.map(item => {
           const itemBookings = getEquipmentBookings(item.id);
-          
+
           return (
             <Card key={item.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
@@ -237,9 +328,9 @@ export function EquipmentBooking() {
                     disabled={item.status === "maintenance" || item.status === "in-use"}
                   >
                     <CalendarIcon className="w-4 h-4 mr-2" />
-                    {item.status === "available" ? "Book Equipment" : 
-                     item.status === "booked" ? "View Bookings" : 
-                     "Not Available"}
+                    {item.status === "available" ? "Book Equipment" :
+                      item.status === "booked" ? "View Bookings" :
+                        "Not Available"}
                   </Button>
                 </div>
               </CardContent>
@@ -297,25 +388,12 @@ export function EquipmentBooking() {
               <Input value={selectedEquipment?.name || ""} disabled />
             </div>
             <div>
-              <Label htmlFor="bookedBy">Your Name</Label>
-              <Input
-                id="bookedBy"
-                placeholder="Enter your name"
-                value={newBooking.bookedBy}
-                onChange={(e) => setNewBooking({ ...newBooking, bookedBy: e.target.value })}
-              />
+              <Label>Booked By</Label>
+              <Input value={user ? `${user.firstName} ${user.lastName}` : ""} disabled />
             </div>
             <div>
-              <Label htmlFor="department">Department</Label>
-              <select
-                id="department"
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                value={newBooking.department}
-                onChange={(e) => setNewBooking({ ...newBooking, department: e.target.value })}
-              >
-                <option value="IT">IT</option>
-                <option value="Engineering">Engineering</option>
-              </select>
+              <Label>Department</Label>
+              <Input value={user?.department || "IT"} disabled />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -360,7 +438,7 @@ export function EquipmentBooking() {
             </Button>
             <Button
               onClick={handleSubmitBooking}
-              disabled={!newBooking.bookedBy || !newBooking.startDate || !newBooking.endDate || !newBooking.purpose || !!conflictWarning}
+              disabled={!newBooking.startDate || !newBooking.endDate || !newBooking.purpose || !!conflictWarning}
             >
               Confirm Booking
             </Button>

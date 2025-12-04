@@ -19,6 +19,7 @@ pub struct User {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserResponse {
     pub id: String,
     pub email: String,
@@ -48,6 +49,7 @@ impl From<User> for UserResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserSummary {
     pub id: String,
     pub first_name: String,

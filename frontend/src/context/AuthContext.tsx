@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi, User, LoginRequest, RegisterRequest } from '../services/api';
+import { authApi, usersApi, User, LoginRequest, RegisterRequest } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -18,11 +18,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check for existing session on mount
-    const storedUser = authApi.getCurrentUser();
-    if (storedUser && authApi.isAuthenticated()) {
-      setUser(storedUser);
-    }
-    setIsLoading(false);
+    const validateSession = async () => {
+      const storedUser = authApi.getCurrentUser();
+      const hasToken = authApi.isAuthenticated();
+
+      if (storedUser && hasToken) {
+        // Try to validate the token by making an API call
+        try {
+          const response = await usersApi.getMe();
+          if (response.success && response.data?.user) {
+            setUser(response.data.user);
+          } else {
+            // Token invalid, clear storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+        } catch {
+          // Token invalid or server error, clear storage
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      }
+      setIsLoading(false);
+    };
+
+    validateSession();
   }, []);
 
   const login = async (credentials: LoginRequest): Promise<{ success: boolean; error?: string }> => {

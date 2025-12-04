@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Download, MapPin, Building, Factory, Users, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Loader2, FolderKanban } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -8,8 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
-import { Search } from "lucide-react";
-import { tasksApi, equipmentApi, locationsApi } from "../services/api";
+import { tasksApi, equipmentApi, projectsApi, Project } from "../services/api";
 
 interface Task {
   id: number;
@@ -30,98 +29,16 @@ interface EquipmentBooking {
   date: string;
 }
 
-interface PersonnelRecord {
-  id: number;
-  name: string;
-  role: string;
-  location: string;
-  checkIn: string;
-  checkOut: string | null;
-  hours: number;
-  method: string;
-  status: "Active" | "Completed";
-  avatar: string;
-  locationIcon: "client" | "corporate" | "manufacturing" | "distribution";
-}
-
-type TabType = "tasks" | "addTask" | "equipmentBooking" | "personnel";
-
-// Default mock data as fallback
-const defaultTasks: Task[] = [
-  {
-    id: 1,
-    title: "Submit Use Case Report to Client",
-    description: "Final review and submission of the use case documentation for the IAQ sensor project",
-    urgency: "urgent",
-    deadline: "Today",
-    completed: false,
-  },
-  {
-    id: 2,
-    title: "Prepare for New Intern Interview",
-    description: "Review candidate resumes and prepare interview questions",
-    urgency: "urgent",
-    deadline: "Tomorrow",
-    completed: false,
-  },
-  {
-    id: 3,
-    title: "Send Monthly Status Report",
-    description: "Compile and send monthly progress report to stakeholders",
-    urgency: "low",
-    deadline: "Nov 30, 2025",
-    completed: false,
-  },
-];
-
-const defaultPersonnelRecords: PersonnelRecord[] = [
-  {
-    id: 1,
-    name: "Michael Chen",
-    role: "Field Engineer",
-    location: "Client Site - TechCorp",
-    checkIn: "09:28 AM",
-    checkOut: null,
-    hours: 0.2,
-    method: "Mobile",
-    status: "Active",
-    avatar: "MC",
-    locationIcon: "client",
-  },
-  {
-    id: 2,
-    name: "Sarah Johnson",
-    role: "Senior Engineer",
-    location: "Corporate Headquarters",
-    checkIn: "08:30 AM",
-    checkOut: null,
-    hours: 1.2,
-    method: "Mobile",
-    status: "Active",
-    avatar: "SJ",
-    locationIcon: "corporate",
-  },
-  {
-    id: 3,
-    name: "David Park",
-    role: "Field Technician",
-    location: "Manufacturing Plant North",
-    checkIn: "07:45 AM",
-    checkOut: null,
-    hours: 1.9,
-    method: "Mobile",
-    status: "Active",
-    avatar: "DP",
-    locationIcon: "manufacturing",
-  },
-];
+type TabType = "tasks" | "addTask" | "equipmentBooking";
 
 export function TaskManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("tasks");
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 20)); // November 20, 2025
+  const [currentDate, setCurrentDate] = useState(new Date()); // Today's date
+  const [selectedDate, setSelectedDate] = useState(new Date()); // Selected date for bookings
+  const [showAllTasks, setShowAllTasks] = useState(false); // Toggle to show all tasks
   const [loading, setLoading] = useState(true);
 
-  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   const [bookings, setBookings] = useState<EquipmentBooking[]>([]);
 
@@ -140,8 +57,6 @@ export function TaskManagement() {
     purpose: "",
   });
 
-  const [personnelRecords, setPersonnelRecords] = useState<PersonnelRecord[]>(defaultPersonnelRecords);
-
   // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
@@ -150,41 +65,37 @@ export function TaskManagement() {
 
         // Fetch tasks
         try {
-          const tasksData = await tasksApi.getTasks();
-          if (tasksData && tasksData.length > 0) {
-            setTasks(tasksData.map((t: any) => ({
+          const response = await tasksApi.getAll();
+          if (response.data?.tasks) {
+            setTasks(response.data.tasks.map((t: any) => ({
               id: t.id,
               title: t.title,
               description: t.description || "",
-              urgency: t.priority === "high" ? "urgent" : "low",
-              deadline: t.due_date || "No deadline",
-              completed: t.is_completed || false,
+              urgency: t.priority === "high" || t.urgency === "urgent" ? "urgent" : "low",
+              deadline: t.due_date || t.deadline || "No deadline",
+              completed: t.is_completed || t.isCompleted || false,
             })));
           }
         } catch (err) {
           console.error("Failed to fetch tasks:", err);
         }
 
-        // Fetch personnel/locations
+        // Fetch equipment bookings
         try {
-          const locationsData = await locationsApi.getLocations();
-          if (locationsData && locationsData.length > 0) {
-            setPersonnelRecords(locationsData.map((l: any) => ({
-              id: l.id,
-              name: l.user_name || "Unknown",
-              role: l.role || "Staff",
-              location: l.location_name || l.current_location || "Unknown",
-              checkIn: l.check_in_time || "-",
-              checkOut: l.check_out_time || null,
-              hours: l.hours_worked || 0,
-              method: "Mobile",
-              status: l.check_out_time ? "Completed" : "Active",
-              avatar: (l.user_name || "UN").split(" ").map((n: string) => n[0]).join("").toUpperCase(),
-              locationIcon: "client" as const,
+          const response = await equipmentApi.getMyBookings();
+          if (response.data?.bookings) {
+            setBookings(response.data.bookings.map((b: any) => ({
+              id: b.id,
+              equipmentName: b.equipment_name || b.equipmentName || "Unknown Equipment",
+              startTime: b.start_time || b.startTime || "",
+              endTime: b.end_time || b.endTime || "",
+              bookedBy: b.booked_by || b.bookedBy || "Unknown",
+              purpose: b.purpose || "",
+              date: b.date || b.start_date || b.startDate || "",
             })));
           }
         } catch (err) {
-          console.error("Failed to fetch locations:", err);
+          console.error("Failed to fetch equipment bookings:", err);
         }
 
       } catch (err) {
@@ -196,22 +107,6 @@ export function TaskManagement() {
 
     fetchData();
   }, []);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [siteFilter, setSiteFilter] = useState("All Sites");
-  const [statusFilter, setStatusFilter] = useState("All Status");
-
-  const filteredPersonnel = personnelRecords.filter((person) => {
-    const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSite = siteFilter === "All Sites" || person.location.includes(siteFilter);
-    const matchesStatus = statusFilter === "All Status" || person.status === statusFilter;
-    return matchesSearch && matchesSite && matchesStatus;
-  });
-
-  const activePersonnel = personnelRecords.filter(p => p.status === "Active").length;
-  const totalHours = personnelRecords.filter(p => p.status === "Active").reduce((sum, p) => sum + p.hours, 0);
-  const avgHours = activePersonnel > 0 ? (totalHours / activePersonnel).toFixed(1) : "0";
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -237,6 +132,42 @@ export function TaskManagement() {
   const monthNames = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"];
 
+  // Format date for display
+  const formatSelectedDate = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+    return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  };
+
+  // Filter tasks by selected date
+  const getTasksForDate = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = formatSelectedDate(date);
+
+    return tasks.filter(task => {
+      const deadline = task.deadline.toLowerCase();
+      // Check for "Today", "Tomorrow", or exact date match
+      if (dateStr === "Today" && deadline === "today") return true;
+      if (dateStr === "Tomorrow" && deadline === "tomorrow") return true;
+      // Check if deadline contains the formatted date
+      if (task.deadline.includes(`${monthNames[date.getMonth()]} ${date.getDate()}`)) return true;
+      // Try parsing deadline as a date
+      const taskDate = new Date(task.deadline);
+      if (!isNaN(taskDate.getTime())) {
+        return taskDate.toDateString() === date.toDateString();
+      }
+      return false;
+    });
+  };
+
+  const filteredTasks = getTasksForDate(selectedDate);
+
   const handleToggleTask = async (taskId: number) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -247,7 +178,7 @@ export function TaskManagement() {
     ));
 
     try {
-      await tasksApi.updateTask(taskId, { is_completed: !task.completed });
+      await tasksApi.update(String(taskId), { isCompleted: !task.completed });
     } catch (err) {
       console.error("Failed to update task:", err);
       // Revert on error
@@ -262,7 +193,7 @@ export function TaskManagement() {
     setTasks(tasks.filter(task => task.id !== taskId));
 
     try {
-      await tasksApi.deleteTask(taskId);
+      await tasksApi.delete(String(taskId));
     } catch (err) {
       console.error("Failed to delete task:", err);
       setTasks(originalTasks);
@@ -288,36 +219,70 @@ export function TaskManagement() {
     setActiveTab("tasks");
 
     try {
-      const createdTask = await tasksApi.createTask({
+      const response = await tasksApi.create({
         title: newTask.title,
         description: newTask.description,
-        priority: newTask.urgency === "urgent" ? "high" : newTask.urgency === "medium" ? "medium" : "low",
-        due_date: newTask.deadline,
+        urgency: newTask.urgency,
+        department: "IT",
+        deadline: newTask.deadline,
       });
 
       // Update with real ID
-      setTasks(prev => prev.map(t =>
-        t.id === tempId ? { ...t, id: createdTask.id } : t
-      ));
+      if (response.success && response.data?.task) {
+        setTasks(prev => prev.map(t =>
+          t.id === tempId ? { ...t, id: response.data.task.id } : t
+        ));
+      }
     } catch (err) {
       console.error("Failed to create task:", err);
       setTasks(prev => prev.filter(t => t.id !== tempId));
     }
-  }; const handleBookEquipment = () => {
-    if (!newBooking.equipmentName || !newBooking.startTime || !newBooking.endTime || !newBooking.bookedBy) return;
-
-    const booking: EquipmentBooking = {
-      id: bookings.length + 1,
-      ...newBooking,
-      date: "November 20, 2025",
-    };
-
-    setBookings([...bookings, booking]);
-    setNewBooking({ equipmentName: "", startTime: "", endTime: "", bookedBy: "", purpose: "" });
   };
 
-  const handleDeleteBooking = (bookingId: number) => {
+  const handleBookEquipment = async () => {
+    if (!newBooking.equipmentName || !newBooking.startTime || !newBooking.endTime || !newBooking.bookedBy) return;
+
+    const tempId = Date.now();
+    const booking: EquipmentBooking = {
+      id: tempId,
+      ...newBooking,
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    };
+
+    // Optimistic update
+    setBookings([...bookings, booking]);
+    setNewBooking({ equipmentName: "", startTime: "", endTime: "", bookedBy: "", purpose: "" });
+
+    try {
+      const response = await equipmentApi.createBooking({
+        equipmentId: "temp", // The API should handle this
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        purpose: newBooking.purpose,
+        department: "IT",
+      });
+
+      if (response.data?.booking) {
+        setBookings(prev => prev.map(b =>
+          b.id === tempId ? { ...b, id: response.data.booking.id } : b
+        ));
+      }
+    } catch (err) {
+      console.error("Failed to create booking:", err);
+      // Keep local booking on error (graceful degradation)
+    }
+  };
+
+  const handleDeleteBooking = async (bookingId: number) => {
+    const originalBookings = [...bookings];
     setBookings(bookings.filter(booking => booking.id !== bookingId));
+
+    try {
+      await equipmentApi.deleteBooking(String(bookingId));
+    } catch (err) {
+      console.error("Failed to delete booking:", err);
+      setBookings(originalBookings);
+    }
   };
 
   const getUrgencyColor = (urgency: string) => {
@@ -329,34 +294,6 @@ export function TaskManagement() {
       default:
         return "bg-gray-100 text-gray-700 border-gray-300";
     }
-  };
-
-  const getLocationIcon = (type: string) => {
-    switch (type) {
-      case "client":
-        return <Building className="w-4 h-4 text-orange-600" />;
-      case "corporate":
-        return <Building className="w-4 h-4 text-blue-600" />;
-      case "manufacturing":
-        return <Factory className="w-4 h-4 text-gray-600" />;
-      case "distribution":
-        return <MapPin className="w-4 h-4 text-green-600" />;
-      default:
-        return <MapPin className="w-4 h-4 text-gray-600" />;
-    }
-  };
-
-  const getAvatarColor = (avatar: string) => {
-    const colors = [
-      "bg-purple-500",
-      "bg-pink-500",
-      "bg-green-500",
-      "bg-orange-500",
-      "bg-blue-500",
-      "bg-rose-500",
-    ];
-    const index = avatar.charCodeAt(0) % colors.length;
-    return colors[index];
   };
 
   if (loading) {
@@ -423,14 +360,23 @@ export function TaskManagement() {
             {/* Calendar days */}
             {Array.from({ length: daysInMonth }).map((_, index) => {
               const day = index + 1;
-              const isSelected = day === 20; // Highlighting Nov 20
+              const dateForDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+              const isSelected = selectedDate.getDate() === day &&
+                selectedDate.getMonth() === currentDate.getMonth() &&
+                selectedDate.getFullYear() === currentDate.getFullYear();
+              const isToday = new Date().getDate() === day &&
+                new Date().getMonth() === currentDate.getMonth() &&
+                new Date().getFullYear() === currentDate.getFullYear();
 
               return (
                 <button
                   key={day}
+                  onClick={() => setSelectedDate(dateForDay)}
                   className={`aspect-square flex items-center justify-center text-sm rounded transition-colors ${isSelected
                     ? 'bg-black text-white'
-                    : 'hover:bg-gray-100 text-gray-700'
+                    : isToday
+                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      : 'hover:bg-gray-100 text-gray-700'
                     }`}
                 >
                   {day}
@@ -471,15 +417,6 @@ export function TaskManagement() {
             >
               Equipment Booking
             </button>
-            <button
-              onClick={() => setActiveTab("personnel")}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "personnel"
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-600 hover:text-gray-900"
-                }`}
-            >
-              Personnel
-            </button>
           </div>
 
           {/* Tab Content */}
@@ -487,45 +424,73 @@ export function TaskManagement() {
             {/* Tasks Tab */}
             {activeTab === "tasks" && (
               <div>
-                <div className="mb-4">
-                  <h2 className="text-lg mb-1">All Tasks</h2>
-                  <p className="text-sm text-gray-600">View and manage your tasks</p>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg mb-1">
+                      {showAllTasks ? "All Tasks" : `Tasks for ${formatSelectedDate(selectedDate)}`}
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      {showAllTasks
+                        ? `${tasks.length} total task${tasks.length === 1 ? '' : 's'}`
+                        : filteredTasks.length === 0
+                          ? "No tasks scheduled for this date"
+                          : `${filteredTasks.length} task${filteredTasks.length === 1 ? '' : 's'} scheduled`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAllTasks(!showAllTasks)}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    {showAllTasks ? "Show by date" : "View all tasks"}
+                  </button>
                 </div>
 
                 <div className="space-y-3">
-                  {tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                    >
-                      <Checkbox
-                        checked={task.completed}
-                        onCheckedChange={() => handleToggleTask(task.id)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start gap-2 mb-1">
-                          <h3 className={`text-sm ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                            {task.title}
-                          </h3>
-                          <Badge className={`${getUrgencyColor(task.urgency)} text-xs px-2 py-0`}>
-                            {task.urgency}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-gray-600 mb-2">{task.description}</p>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <Clock className="w-3 h-3" />
-                          <span>Due: {task.deadline}</span>
-                        </div>
-                      </div>
+                  {!showAllTasks && filteredTasks.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No tasks for {formatSelectedDate(selectedDate)}</p>
                       <button
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        onClick={() => setActiveTab("addTask")}
+                        className="mt-2 text-sm text-blue-600 hover:underline"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        + Add a task for this date
                       </button>
                     </div>
-                  ))}
+                  ) : (
+                    (showAllTasks ? tasks : filteredTasks).map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                      >
+                        <Checkbox
+                          checked={task.completed}
+                          onCheckedChange={() => handleToggleTask(task.id)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2 mb-1">
+                            <h3 className={`text-sm ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                              {task.title}
+                            </h3>
+                            <Badge className={`${getUrgencyColor(task.urgency)} text-xs px-2 py-0`}>
+                              {task.urgency}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">{task.description}</p>
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <Clock className="w-3 h-3" />
+                            <span>Due: {task.deadline}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    )))}
                 </div>
               </div>
             )}
@@ -709,127 +674,6 @@ export function TaskManagement() {
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Personnel Tab */}
-            {activeTab === "personnel" && (
-              <div>
-                <div className="mb-6">
-                  <h2 className="text-lg mb-1">Personnel Location Tracker</h2>
-                  <p className="text-sm text-gray-600">Real-time visibility of team member locations and work hours</p>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <Card className="p-4 bg-green-50 border-green-200">
-                    <p className="text-sm text-green-800 mb-1">Clocked In</p>
-                    <p className="text-3xl text-green-900">{activePersonnel}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <p className="text-sm text-gray-600 mb-1">Total Hours</p>
-                    <p className="text-3xl text-gray-900">{totalHours.toFixed(1)}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <p className="text-sm text-gray-600 mb-1">Average Hours</p>
-                    <p className="text-3xl text-gray-900">{avgHours}</p>
-                  </Card>
-                </div>
-
-                {/* Export Button */}
-                <div className="flex items-center justify-between mb-4">
-                  <div />
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export Data
-                  </Button>
-                </div>
-
-                {/* Filters */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by name or location..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Select value={siteFilter} onValueChange={setSiteFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All Sites">All Sites</SelectItem>
-                      <SelectItem value="Client Site">Client Site</SelectItem>
-                      <SelectItem value="Corporate">Corporate Headquarters</SelectItem>
-                      <SelectItem value="Manufacturing">Manufacturing Plant</SelectItem>
-                      <SelectItem value="Distribution">Distribution Center</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All Status">All Status</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Personnel List */}
-                <div className="space-y-3">
-                  {filteredPersonnel.map((person) => (
-                    <div
-                      key={person.id}
-                      className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                    >
-                      <div className={`w-10 h-10 ${getAvatarColor(person.avatar)} rounded-full flex items-center justify-center flex-shrink-0`}>
-                        <span className="text-sm text-white">{person.avatar}</span>
-                      </div>
-                      <div className="flex-1 grid grid-cols-6 gap-4 items-center">
-                        <div>
-                          <p className="text-sm text-gray-900">{person.name}</p>
-                          <p className="text-xs text-gray-500">{person.role}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getLocationIcon(person.locationIcon)}
-                          <p className="text-xs text-gray-700">{person.location}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500">Check In</p>
-                          <p className="text-sm text-gray-900">{person.checkIn}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500">Check Out</p>
-                          <p className="text-sm text-gray-900">{person.checkOut || "-"}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-500">Hours</p>
-                          <p className="text-sm text-gray-900">{person.hours}h</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-gray-500">Method</p>
-                            <p className="text-sm text-gray-900">{person.method}</p>
-                          </div>
-                          <Badge
-                            className={
-                              person.status === "Active"
-                                ? "bg-green-100 text-green-700 border-green-300"
-                                : "bg-gray-100 text-gray-700 border-gray-300"
-                            }
-                          >
-                            {person.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}

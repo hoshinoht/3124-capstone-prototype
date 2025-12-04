@@ -9,6 +9,7 @@ mod models {
     pub mod glossary;
     pub mod locations;
     pub mod notifications;
+    pub mod projects;
     pub mod quick_links;
     pub mod sessions;
     pub mod tasks;
@@ -23,6 +24,7 @@ mod routes {
     pub mod glossary;
     pub mod locations;
     pub mod notifications;
+    pub mod projects;
     pub mod quick_links;
     pub mod search;
     pub mod tasks;
@@ -34,8 +36,8 @@ use actix_web::{App, HttpServer, web};
 use log::info;
 use middleware::{auth::Auth, logging::Logger};
 use routes::{
-    auth, dashboard, equipment, events, glossary, locations, notifications, quick_links, search,
-    tasks, users,
+    auth, dashboard, equipment, events, glossary, locations, notifications, projects, quick_links,
+    search, tasks, users,
 };
 
 use sqlx::SqlitePool;
@@ -91,17 +93,14 @@ async fn main() -> std::io::Result<()> {
     info!("Session cleanup background task started (runs every hour)");
 
     HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .supports_credentials();
+        // Use permissive CORS for development
+        let cors = Cors::permissive();
 
         App::new()
             .app_data(db_pool.clone())
             .wrap(cors)
-            .wrap(Logger)
             .wrap(Auth)
+            .wrap(Logger)
             .service(
                 web::scope("/api")
                     .configure(auth::configure_routes)
@@ -114,6 +113,7 @@ async fn main() -> std::io::Result<()> {
                     .configure(quick_links::configure_routes)
                     .configure(glossary::configure_routes)
                     .configure(notifications::configure_routes)
+                    .configure(projects::configure_routes)
                     .configure(search::configure_routes),
             )
     })

@@ -3,6 +3,7 @@ pub mod events;
 pub mod glossary;
 pub mod locations;
 pub mod notifications;
+pub mod projects;
 pub mod quick_links;
 pub mod sessions;
 pub mod tasks;

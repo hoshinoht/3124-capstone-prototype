@@ -1,7 +1,9 @@
-import { Bell, AlertCircle, Calendar, Package, CheckCircle, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, AlertCircle, Calendar, Package, CheckCircle, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { notificationsApi } from "../services/api";
 
 interface Notification {
   id: number;
@@ -17,16 +19,41 @@ interface NotificationCenterProps {
 }
 
 export function NotificationCenter({ notifications, setNotifications }: NotificationCenterProps) {
-  const handleMarkAsRead = (notificationId: number) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleMarkAsRead = async (notificationId: number) => {
+    // Optimistic update
     setNotifications(
       notifications.map(n =>
         n.id === notificationId ? { ...n, read: true } : n
       )
     );
+
+    try {
+      await notificationsApi.markAsRead(String(notificationId));
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+      // Revert on error
+      setNotifications(
+        notifications.map(n =>
+          n.id === notificationId ? { ...n, read: false } : n
+        )
+      );
+    }
   };
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
+    const previousNotifications = [...notifications];
+    // Optimistic update
     setNotifications(notifications.map(n => ({ ...n, read: true })));
+
+    try {
+      await notificationsApi.markAllAsRead();
+    } catch (err) {
+      console.error("Failed to mark all as read:", err);
+      // Revert on error
+      setNotifications(previousNotifications);
+    }
   };
 
   const handleDeleteNotification = (notificationId: number) => {

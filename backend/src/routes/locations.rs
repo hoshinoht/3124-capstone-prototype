@@ -12,6 +12,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route("/check-in", web::post().to(check_in))
             .route("/check-out", web::post().to(check_out))
             .route("/current", web::get().to(get_current_locations))
+            .route("/today", web::get().to(get_today_records))
             .route("/history/me", web::get().to(get_my_history))
             .route("/search", web::get().to(search_locations)),
     );
@@ -380,6 +381,70 @@ async fn search_locations(
                 "success": true,
                 "data": {
                     "locations": locations_json
+                }
+            }))
+        }
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Database error"
+                }
+            }))
+        }
+    }
+}
+
+async fn get_today_records(pool: web::Data<SqlitePool>) -> HttpResponse {
+    // Get all check-in records for today with user info
+    let result = sqlx::query_as::<_, (String, String, String, String, String, String, String, Option<String>, Option<String>)>(
+        "SELECT c.id, c.user_id, u.first_name, u.last_name, u.department, c.location, c.check_in_time, c.check_out_time, c.notes
+         FROM check_in_records c
+         JOIN users u ON c.user_id = u.id
+         WHERE date(c.check_in_time) = date('now', 'localtime')
+         ORDER BY c.check_in_time DESC"
+    )
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(records) => {
+            let records_json: Vec<serde_json::Value> = records
+                .iter()
+                .map(
+                    |(
+                        id,
+                        user_id,
+                        first_name,
+                        last_name,
+                        department,
+                        location,
+                        check_in_time,
+                        check_out_time,
+                        notes,
+                    )| {
+                        serde_json::json!({
+                            "id": id,
+                            "userId": user_id,
+                            "userName": format!("{} {}", first_name, last_name),
+                            "department": department,
+                            "location": location,
+                            "checkInTime": check_in_time,
+                            "checkOutTime": check_out_time,
+                            "notes": notes,
+                            "status": if check_out_time.is_some() { "completed" } else { "active" }
+                        })
+                    },
+                )
+                .collect();
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": {
+                    "records": records_json,
+                    "total": records_json.len()
                 }
             }))
         }

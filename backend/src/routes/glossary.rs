@@ -2,7 +2,10 @@ use actix_web::{HttpMessage, HttpRequest, HttpResponse, web};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-use crate::models::glossary::{GlossaryCategory, GlossaryTerm, CreateTermRequest, UpdateTermRequest, GetTermsQuery, SearchQuery};
+use crate::models::glossary::{
+    CreateTermRequest, GetTermsQuery, GlossaryCategory, GlossaryTerm, SearchQuery,
+    UpdateTermRequest,
+};
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -18,12 +21,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn get_terms(
-    pool: web::Data<SqlitePool>,
-    query: web::Query<GetTermsQuery>,
-) -> HttpResponse {
+async fn get_terms(pool: web::Data<SqlitePool>, query: web::Query<GetTermsQuery>) -> HttpResponse {
     let mut sql = String::from(
-        "SELECT t.id, t.term, t.definition, t.category_id, c.name as category_name, t.department, t.related_terms, t.examples, t.is_approved, t.created_by, t.created_at, t.updated_at
+        "SELECT t.id, t.acronym, t.full_name, t.definition, t.category_id, c.name as category_name, t.is_approved, t.created_by, t.created_at, t.updated_at
          FROM glossary_terms t
          LEFT JOIN glossary_categories c ON t.category_id = c.id
          WHERE 1=1"
@@ -32,39 +32,61 @@ async fn get_terms(
     if let Some(ref category_id) = query.category_id {
         sql.push_str(&format!(" AND t.category_id = '{}'", category_id));
     }
-    if let Some(ref department) = query.department {
-        sql.push_str(&format!(" AND (t.department = '{}' OR t.department = 'Both')", department));
-    }
     if query.approved_only.unwrap_or(false) {
         sql.push_str(" AND t.is_approved = 1");
     }
 
-    sql.push_str(" ORDER BY t.term");
+    sql.push_str(" ORDER BY t.acronym");
 
-    let result = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, String, Option<String>, Option<String>, bool, String, String, String)>(&sql)
-        .fetch_all(pool.get_ref())
-        .await;
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            bool,
+            String,
+            Option<String>,
+            Option<String>,
+        ),
+    >(&sql)
+    .fetch_all(pool.get_ref())
+    .await;
 
     match result {
         Ok(terms) => {
             let terms_json: Vec<serde_json::Value> = terms
                 .iter()
-                .map(|(id, term, definition, category_id, category_name, department, related_terms, examples, is_approved, created_by, created_at, updated_at)| {
-                    serde_json::json!({
-                        "id": id,
-                        "term": term,
-                        "definition": definition,
-                        "categoryId": category_id,
-                        "categoryName": category_name,
-                        "department": department,
-                        "relatedTerms": related_terms.as_ref().map(|rt| rt.split(',').collect::<Vec<_>>()).unwrap_or_default(),
-                        "examples": examples.as_ref().map(|e| e.split("|||").collect::<Vec<_>>()).unwrap_or_default(),
-                        "isApproved": is_approved,
-                        "createdBy": created_by,
-                        "createdAt": created_at,
-                        "updatedAt": updated_at
-                    })
-                })
+                .map(
+                    |(
+                        id,
+                        acronym,
+                        full_name,
+                        definition,
+                        category_id,
+                        category_name,
+                        is_approved,
+                        created_by,
+                        created_at,
+                        updated_at,
+                    )| {
+                        serde_json::json!({
+                            "id": id,
+                            "acronym": acronym,
+                            "fullName": full_name,
+                            "definition": definition,
+                            "categoryId": category_id,
+                            "categoryName": category_name,
+                            "isApproved": is_approved,
+                            "createdBy": created_by,
+                            "createdAt": created_at,
+                            "updatedAt": updated_at
+                        })
+                    },
+                )
                 .collect();
 
             HttpResponse::Ok().json(serde_json::json!({
@@ -101,14 +123,13 @@ async fn get_term(pool: web::Data<SqlitePool>, path: web::Path<String>) -> HttpR
     match result {
         Ok(Some(term)) => {
             // Get category name
-            let category = sqlx::query_as::<_, (String,)>(
-                "SELECT name FROM glossary_categories WHERE id = ?"
-            )
-            .bind(&term.category_id)
-            .fetch_optional(pool.get_ref())
-            .await
-            .ok()
-            .flatten();
+            let category =
+                sqlx::query_as::<_, (String,)>("SELECT name FROM glossary_categories WHERE id = ?")
+                    .bind(&term.category_id)
+                    .fetch_optional(pool.get_ref())
+                    .await
+                    .ok()
+                    .flatten();
 
             HttpResponse::Ok().json(serde_json::json!({
                 "success": true,
@@ -169,19 +190,25 @@ async fn create_term(
     };
 
     let term_id = Uuid::new_v4().to_string();
-    let related_terms = body.related_terms.as_ref().map(|rt| rt.join(","));
-    let examples = body.examples.as_ref().map(|e| e.join("|||"));
+
+    // category_id from frontend might be a name like "IT" or a UUID
+    // If it's not a valid UUID format, set it to NULL
+    let category_id: Option<String> = body.category_id.as_ref().and_then(|cid| {
+        if Uuid::parse_str(cid).is_ok() {
+            Some(cid.clone())
+        } else {
+            None // Invalid UUID format, store as NULL
+        }
+    });
 
     let result = sqlx::query(
-        "INSERT INTO glossary_terms (id, term, definition, category_id, department, related_terms, examples, is_approved, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)"
+        "INSERT INTO glossary_terms (id, acronym, full_name, definition, category_id, created_by, is_approved) VALUES (?, ?, ?, ?, ?, ?, 0)"
     )
     .bind(&term_id)
     .bind(&body.term)
+    .bind(&body.term)
     .bind(&body.definition)
-    .bind(&body.category_id)
-    .bind(body.department.as_deref().unwrap_or("Both"))
-    .bind(&related_terms)
-    .bind(&examples)
+    .bind(&category_id)
     .bind(&user_id)
     .execute(pool.get_ref())
     .await;
@@ -190,7 +217,7 @@ async fn create_term(
         Ok(_) => {
             // Log to glossary_history
             let _ = sqlx::query(
-                "INSERT INTO glossary_history (id, term_id, action, changed_by, changes) VALUES (?, ?, 'created', ?, ?)"
+                "INSERT INTO glossary_history (id, term_id, user_id, action, new_value) VALUES (?, ?, ?, 'created', ?)"
             )
             .bind(Uuid::new_v4().to_string())
             .bind(&term_id)
@@ -204,12 +231,10 @@ async fn create_term(
                 "data": {
                     "term": {
                         "id": term_id,
-                        "term": body.term,
+                        "acronym": body.term,
+                        "fullName": body.term,
                         "definition": body.definition,
                         "categoryId": body.category_id,
-                        "department": body.department.as_deref().unwrap_or("Both"),
-                        "relatedTerms": body.related_terms,
-                        "examples": body.examples,
                         "isApproved": false,
                         "createdBy": user_id
                     }
@@ -281,7 +306,10 @@ async fn update_term(
     }
 
     updates.push("updated_at = datetime('now')".to_string());
-    let sql = format!("UPDATE glossary_terms SET {} WHERE id = ?", updates.join(", "));
+    let sql = format!(
+        "UPDATE glossary_terms SET {} WHERE id = ?",
+        updates.join(", ")
+    );
 
     let result = sqlx::query(&sql)
         .bind(&term_id)
@@ -445,7 +473,7 @@ async fn approve_term(
     let term_id = path.into_inner();
 
     let result = sqlx::query(
-        "UPDATE glossary_terms SET is_approved = 1, updated_at = datetime('now') WHERE id = ?"
+        "UPDATE glossary_terms SET is_approved = 1, updated_at = datetime('now') WHERE id = ?",
     )
     .bind(&term_id)
     .execute(pool.get_ref())
@@ -498,8 +526,8 @@ async fn approve_term(
 }
 
 async fn get_categories(pool: web::Data<SqlitePool>) -> HttpResponse {
-    let result = sqlx::query_as::<_, GlossaryCategory>(
-        "SELECT id, name, description, department, display_order, created_at, updated_at FROM glossary_categories ORDER BY display_order, name"
+    let result = sqlx::query_as::<_, (String, String, i32, Option<String>, Option<String>)>(
+        "SELECT id, name, display_order, created_at, updated_at FROM glossary_categories ORDER BY display_order, name"
     )
     .fetch_all(pool.get_ref())
     .await;
@@ -508,13 +536,13 @@ async fn get_categories(pool: web::Data<SqlitePool>) -> HttpResponse {
         Ok(categories) => {
             let categories_json: Vec<serde_json::Value> = categories
                 .iter()
-                .map(|c| {
+                .map(|(id, name, display_order, created_at, updated_at)| {
                     serde_json::json!({
-                        "id": c.id,
-                        "name": c.name,
-                        "description": c.description,
-                        "department": c.department,
-                        "displayOrder": c.display_order
+                        "id": id,
+                        "name": name,
+                        "displayOrder": display_order,
+                        "createdAt": created_at,
+                        "updatedAt": updated_at
                     })
                 })
                 .collect();
@@ -539,12 +567,9 @@ async fn get_categories(pool: web::Data<SqlitePool>) -> HttpResponse {
     }
 }
 
-async fn search_terms(
-    pool: web::Data<SqlitePool>,
-    query: web::Query<SearchQuery>,
-) -> HttpResponse {
+async fn search_terms(pool: web::Data<SqlitePool>, query: web::Query<SearchQuery>) -> HttpResponse {
     let search = query.q.as_deref().unwrap_or("");
-    
+
     if search.is_empty() {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
@@ -559,11 +584,14 @@ async fn search_terms(
         "SELECT t.id, t.term, t.definition, t.category_id, c.name as category_name, t.department
          FROM glossary_terms t
          LEFT JOIN glossary_categories c ON t.category_id = c.id
-         WHERE (t.term LIKE ? OR t.definition LIKE ?)"
+         WHERE (t.term LIKE ? OR t.definition LIKE ?)",
     );
 
     if let Some(ref department) = query.department {
-        sql.push_str(&format!(" AND (t.department = '{}' OR t.department = 'Both')", department));
+        sql.push_str(&format!(
+            " AND (t.department = '{}' OR t.department = 'Both')",
+            department
+        ));
     }
 
     sql.push_str(" ORDER BY CASE WHEN t.term LIKE ? THEN 0 ELSE 1 END, t.term");
@@ -572,27 +600,39 @@ async fn search_terms(
     let search_pattern = format!("%{}%", search);
     let starts_with = format!("{}%", search);
 
-    let result = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, String)>(&sql)
-        .bind(&search_pattern)
-        .bind(&search_pattern)
-        .bind(&starts_with)
-        .fetch_all(pool.get_ref())
-        .await;
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+        ),
+    >(&sql)
+    .bind(&search_pattern)
+    .bind(&search_pattern)
+    .bind(&starts_with)
+    .fetch_all(pool.get_ref())
+    .await;
 
     match result {
         Ok(terms) => {
             let terms_json: Vec<serde_json::Value> = terms
                 .iter()
-                .map(|(id, term, definition, category_id, category_name, department)| {
-                    serde_json::json!({
-                        "id": id,
-                        "term": term,
-                        "definition": definition,
-                        "categoryId": category_id,
-                        "categoryName": category_name,
-                        "department": department
-                    })
-                })
+                .map(
+                    |(id, term, definition, category_id, category_name, department)| {
+                        serde_json::json!({
+                            "id": id,
+                            "term": term,
+                            "definition": definition,
+                            "categoryId": category_id,
+                            "categoryName": category_name,
+                            "department": department
+                        })
+                    },
+                )
                 .collect();
 
             HttpResponse::Ok().json(serde_json::json!({

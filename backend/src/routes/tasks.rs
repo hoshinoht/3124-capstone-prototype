@@ -21,7 +21,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
 
 async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>) -> HttpResponse {
     let mut sql = String::from(
-        "SELECT t.id, t.title, t.description, t.urgency, t.status, t.department, t.assignee_id, t.created_by, t.deadline, t.completed_at, t.created_at, t.updated_at, t.is_completed FROM tasks t WHERE 1=1",
+        "SELECT t.id, t.title, t.description, t.urgency, t.status, t.department, t.project_id, t.assignee_id, t.created_by, t.deadline, t.completed_at, t.created_at, t.updated_at, t.is_completed, p.name as project_name FROM tasks t LEFT JOIN projects p ON t.project_id = p.id WHERE 1=1",
     );
 
     if let Some(ref status) = query.status {
@@ -32,6 +32,9 @@ async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>
     }
     if let Some(ref department) = query.department {
         sql.push_str(&format!(" AND t.department = '{}'", department));
+    }
+    if let Some(ref project_id) = query.project_id {
+        sql.push_str(&format!(" AND t.project_id = '{}'", project_id));
     }
     if let Some(ref assignee_id) = query.assignee_id {
         sql.push_str(&format!(" AND t.assignee_id = '{}'", assignee_id));
@@ -49,30 +52,69 @@ async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>
     let offset = query.offset.unwrap_or(0);
     sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
 
-    let result = sqlx::query_as::<_, Task>(&sql)
-        .fetch_all(pool.get_ref())
-        .await;
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<bool>,
+            Option<String>,
+        ),
+    >(&sql)
+    .fetch_all(pool.get_ref())
+    .await;
 
     match result {
         Ok(tasks) => {
             let tasks_json: Vec<serde_json::Value> = tasks
                 .iter()
-                .map(|t| {
-                    serde_json::json!({
-                        "id": t.id,
-                        "title": t.title,
-                        "description": t.description,
-                        "urgency": t.urgency,
-                        "status": t.status,
-                        "department": t.department,
-                        "assigneeId": t.assignee_id,
-                        "deadline": t.deadline,
-                        "completedAt": t.completed_at,
-                        "createdAt": t.created_at,
-                        "updatedAt": t.updated_at,
-                        "isCompleted": t.is_completed.unwrap_or(false)
-                    })
-                })
+                .map(
+                    |(
+                        id,
+                        title,
+                        description,
+                        urgency,
+                        status,
+                        department,
+                        project_id,
+                        assignee_id,
+                        _created_by,
+                        deadline,
+                        completed_at,
+                        created_at,
+                        updated_at,
+                        is_completed,
+                        project_name,
+                    )| {
+                        serde_json::json!({
+                            "id": id,
+                            "title": title,
+                            "description": description,
+                            "urgency": urgency,
+                            "status": status,
+                            "department": department,
+                            "projectId": project_id,
+                            "projectName": project_name,
+                            "assigneeId": assignee_id,
+                            "deadline": deadline,
+                            "completedAt": completed_at,
+                            "createdAt": created_at,
+                            "updatedAt": updated_at,
+                            "isCompleted": is_completed.unwrap_or(false)
+                        })
+                    },
+                )
                 .collect();
 
             HttpResponse::Ok().json(serde_json::json!({
@@ -101,8 +143,8 @@ async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>
 }
 
 async fn get_urgent_tasks(pool: web::Data<SqlitePool>) -> HttpResponse {
-    let result = sqlx::query_as::<_, Task>(
-        "SELECT id, title, description, urgency, status, department, assignee_id, created_by, deadline, completed_at, created_at, updated_at, is_completed FROM tasks WHERE urgency = 'urgent' AND status != 'completed' ORDER BY deadline ASC"
+    let result = sqlx::query_as::<_, (String, String, Option<String>, String, String, String, Option<String>, Option<String>, String, String, Option<String>, Option<String>, Option<String>, Option<bool>)>(
+        "SELECT id, title, description, urgency, status, department, project_id, assignee_id, created_by, deadline, completed_at, created_at, updated_at, is_completed FROM tasks WHERE urgency = 'urgent' AND status != 'completed' ORDER BY deadline ASC"
     )
     .fetch_all(pool.get_ref())
     .await;
@@ -111,16 +153,34 @@ async fn get_urgent_tasks(pool: web::Data<SqlitePool>) -> HttpResponse {
         Ok(tasks) => {
             let tasks_json: Vec<serde_json::Value> = tasks
                 .iter()
-                .map(|t| {
-                    serde_json::json!({
-                        "id": t.id,
-                        "title": t.title,
-                        "urgency": t.urgency,
-                        "status": t.status,
-                        "deadline": t.deadline,
-                        "isCompleted": t.is_completed.unwrap_or(false)
-                    })
-                })
+                .map(
+                    |(
+                        id,
+                        title,
+                        _description,
+                        urgency,
+                        status,
+                        _department,
+                        project_id,
+                        _assignee_id,
+                        _created_by,
+                        deadline,
+                        _completed_at,
+                        _created_at,
+                        _updated_at,
+                        is_completed,
+                    )| {
+                        serde_json::json!({
+                            "id": id,
+                            "title": title,
+                            "urgency": urgency,
+                            "status": status,
+                            "projectId": project_id,
+                            "deadline": deadline,
+                            "isCompleted": is_completed.unwrap_or(false)
+                        })
+                    },
+                )
                 .collect();
 
             HttpResponse::Ok().json(serde_json::json!({
@@ -165,13 +225,14 @@ async fn create_task(
     let task_id = Uuid::new_v4().to_string();
 
     let result = sqlx::query(
-        "INSERT INTO tasks (id, title, description, urgency, department, assignee_id, created_by, deadline, is_completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO tasks (id, title, description, urgency, department, project_id, assignee_id, created_by, deadline, is_completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(&task_id)
     .bind(&body.title)
     .bind(&body.description)
     .bind(&body.urgency)
     .bind(&body.department)
+    .bind(&body.project_id)
     .bind(&body.assignee_id)
     .bind(&user_id)
     .bind(&body.deadline)
@@ -202,6 +263,7 @@ async fn create_task(
                         "urgency": body.urgency,
                         "status": "pending",
                         "department": body.department,
+                        "projectId": body.project_id,
                         "assigneeId": body.assignee_id,
                         "deadline": body.deadline,
                         "isCompleted": body.is_completed.unwrap_or(false)
@@ -252,6 +314,10 @@ async fn update_task(
     if let Some(ref department) = body.department {
         updates.push("department = ?");
         params.push(department.clone());
+    }
+    if body.project_id.is_some() {
+        updates.push("project_id = ?");
+        params.push(body.project_id.clone().unwrap_or_default());
     }
     if let Some(ref assignee_id) = body.assignee_id {
         updates.push("assignee_id = ?");

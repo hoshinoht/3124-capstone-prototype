@@ -46,12 +46,34 @@ export interface Task {
   urgency: 'urgent' | 'high' | 'medium' | 'low';
   status: 'pending' | 'in-progress' | 'completed';
   department: string;
+  projectId?: string;
+  projectName?: string;
   assigneeId?: string;
   deadline: string;
   completedAt?: string;
   createdAt?: string;
   updatedAt?: string;
   isCompleted: boolean;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'completed' | 'archived';
+  createdBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+  memberCount?: number;
+  taskCount?: number;
+}
+
+export interface ProjectMember {
+  id: string;
+  userId: string;
+  name: string;
+  role: 'owner' | 'admin' | 'member';
+  addedAt: string;
 }
 
 export interface DashboardData {
@@ -103,6 +125,14 @@ async function apiRequest<T>(
     headers,
     credentials: 'include',
   });
+
+  // Handle 401 Unauthorized - clear stored auth and redirect
+  if (response.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    // Don't throw, just return a structured error response
+    throw new Error('Session expired. Please log in again.');
+  }
 
   const data = await response.json();
 
@@ -188,6 +218,7 @@ export const tasksApi = {
     status?: string;
     urgency?: string;
     department?: string;
+    projectId?: string;
     isCompleted?: boolean;
   }): Promise<{ success: boolean; data: { tasks: Task[]; pagination: { total: number } } }> => {
     const searchParams = new URLSearchParams();
@@ -212,6 +243,7 @@ export const tasksApi = {
     urgency: string;
     department: string;
     deadline: string;
+    projectId?: string;
     assigneeId?: string;
     isCompleted?: boolean;
   }): Promise<{ success: boolean; data: { task: Task } }> => {
@@ -229,6 +261,7 @@ export const tasksApi = {
       urgency: string;
       department: string;
       deadline: string;
+      projectId: string;
       assigneeId: string;
       isCompleted: boolean;
     }>
@@ -280,24 +313,47 @@ export const equipmentApi = {
     return apiRequest('/equipment');
   },
 
-  getBookings: async (): Promise<{ success: boolean; data: { bookings: any[] } }> => {
-    return apiRequest('/equipment/bookings');
+  getById: async (equipmentId: string): Promise<{ success: boolean; data: { equipment: any } }> => {
+    return apiRequest(`/equipment/${equipmentId}`);
   },
 
-  createBooking: async (booking: {
-    equipmentId: string;
-    startDate: string;
-    endDate: string;
-    purpose: string;
-    department: string;
-  }): Promise<{ success: boolean; data: { booking: any } }> => {
-    return apiRequest('/equipment/bookings', {
+  getMyBookings: async (): Promise<{ success: boolean; data: { bookings: any[] } }> => {
+    return apiRequest('/equipment/bookings/me');
+  },
+
+  createBooking: async (
+    equipmentId: string,
+    booking: {
+      startDate: string;
+      endDate: string;
+      purpose: string;
+    }
+  ): Promise<{ success: boolean; data: { booking: any } }> => {
+    return apiRequest(`/equipment/${equipmentId}/bookings`, {
       method: 'POST',
-      body: JSON.stringify(booking),
+      body: JSON.stringify({
+        startDate: booking.startDate,
+        endDate: booking.endDate,
+        purpose: booking.purpose,
+      }),
     });
   },
 
-  deleteBooking: async (bookingId: string): Promise<{ success: boolean }> => {
+  checkAvailability: async (
+    equipmentId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{ success: boolean; data: { isAvailable: boolean; conflicts: any[] } }> => {
+    return apiRequest(`/equipment/${equipmentId}/check-availability`, {
+      method: 'POST',
+      body: JSON.stringify({
+        startDate: startDate,
+        endDate: endDate,
+      }),
+    });
+  },
+
+  cancelBooking: async (bookingId: string): Promise<{ success: boolean }> => {
     return apiRequest(`/equipment/bookings/${bookingId}`, { method: 'DELETE' });
   },
 };
@@ -321,14 +377,19 @@ export const glossaryApi = {
   },
 
   createTerm: async (term: {
-    acronym: string;
-    fullName: string;
-    definition?: string;
+    term: string;
+    definition: string;
     categoryId?: string;
+    department?: string;
   }): Promise<{ success: boolean; data: { term: any } }> => {
     return apiRequest('/glossary/terms', {
       method: 'POST',
-      body: JSON.stringify(term),
+      body: JSON.stringify({
+        term: term.term,
+        definition: term.definition,
+        categoryId: term.categoryId,
+        department: term.department,
+      }),
     });
   },
 };
@@ -350,8 +411,16 @@ export const notificationsApi = {
 
 // Locations API
 export const locationsApi = {
-  getCurrent: async (): Promise<{ success: boolean; data: { locations: any[] } }> => {
+  getCurrent: async (): Promise<{ success: boolean; data: { activeCheckIns: any[] } }> => {
     return apiRequest('/locations/current');
+  },
+
+  getTodayRecords: async (): Promise<{ success: boolean; data: { records: any[]; total: number } }> => {
+    return apiRequest('/locations/today');
+  },
+
+  getMyStatus: async (): Promise<{ success: boolean; data: { history: any[] } }> => {
+    return apiRequest('/locations/history/me?limit=1');
   },
 
   getHistory: async (params?: {
@@ -380,7 +449,10 @@ export const locationsApi = {
   },
 
   checkOut: async (): Promise<{ success: boolean; data: { record: any } }> => {
-    return apiRequest('/locations/check-out', { method: 'POST' });
+    return apiRequest('/locations/check-out', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
   },
 };
 
@@ -400,7 +472,7 @@ export const eventsApi = {
       });
     }
     const query = searchParams.toString();
-    return apiRequest(`/events${query ? `?${query}` : ''}`);
+    return apiRequest(`/calendar/events${query ? `?${query}` : ''}`);
   },
 
   create: async (event: {
@@ -413,10 +485,85 @@ export const eventsApi = {
     location?: string;
     department?: string;
   }): Promise<{ success: boolean; data: { event: any } }> => {
-    return apiRequest('/events', {
+    return apiRequest('/calendar/events', {
       method: 'POST',
       body: JSON.stringify(event),
     });
+  },
+};
+
+// Projects API
+export const projectsApi = {
+  getAll: async (params?: {
+    status?: string;
+    search?: string;
+  }): Promise<{ success: boolean; data: { projects: Project[]; total: number } }> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value);
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return apiRequest(`/projects${query ? `?${query}` : ''}`);
+  },
+
+  getById: async (projectId: string): Promise<{ success: boolean; data: { project: Project } }> => {
+    return apiRequest(`/projects/${projectId}`);
+  },
+
+  create: async (project: {
+    name: string;
+    description?: string;
+    status?: string;
+    memberIds?: string[];
+  }): Promise<{ success: boolean; data: { project: Project } }> => {
+    return apiRequest('/projects', {
+      method: 'POST',
+      body: JSON.stringify(project),
+    });
+  },
+
+  update: async (
+    projectId: string,
+    updates: Partial<{
+      name: string;
+      description: string;
+      status: string;
+    }>
+  ): Promise<{ success: boolean; data: { project: Project } }> => {
+    return apiRequest(`/projects/${projectId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  delete: async (projectId: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/projects/${projectId}`, { method: 'DELETE' });
+  },
+
+  getMembers: async (projectId: string): Promise<{ success: boolean; data: { members: ProjectMember[]; total: number } }> => {
+    return apiRequest(`/projects/${projectId}/members`);
+  },
+
+  addMember: async (
+    projectId: string,
+    data: { userId: string; role?: string }
+  ): Promise<{ success: boolean; data: { member: ProjectMember } }> => {
+    return apiRequest(`/projects/${projectId}/members`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  removeMember: async (projectId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' });
+  },
+
+  getTasks: async (projectId: string): Promise<{ success: boolean; data: { tasks: Task[]; total: number } }> => {
+    return apiRequest(`/projects/${projectId}/tasks`);
   },
 };
 
@@ -450,4 +597,5 @@ export default {
   locations: locationsApi,
   events: eventsApi,
   quickLinks: quickLinksApi,
+  projects: projectsApi,
 };

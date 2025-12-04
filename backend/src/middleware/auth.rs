@@ -68,6 +68,13 @@ where
         Box::pin(async move {
             println!("Request: {}", req.path());
 
+            // Skip authentication for OPTIONS preflight requests (CORS)
+            if req.method() == actix_web::http::Method::OPTIONS {
+                println!("Skipping auth for OPTIONS preflight request");
+                let res = service.call(req).await?;
+                return Ok(res);
+            }
+
             // Skip authentication for login, register, and root paths
             let path = req.path();
             if WHITELISTED_PATHS.contains(&path) {
