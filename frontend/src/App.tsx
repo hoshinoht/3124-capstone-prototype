@@ -13,7 +13,8 @@ import { Glossary } from "./components/Glossary";
 import { NotificationCenter } from "./components/NotificationCenter";
 import { Personnel } from "./components/Personnel";
 import { Projects } from "./components/Projects";
-import { tasksApi, eventsApi, equipmentApi } from "./services/api";
+import { Profile } from "./components/Profile";
+import { tasksApi, eventsApi, equipmentApi, User as UserType } from "./services/api";
 
 interface Notification {
   id: number;
@@ -24,7 +25,7 @@ interface Notification {
 }
 
 export default function App() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, updateUser } = useAuth();
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -247,8 +248,11 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* User info */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+              {/* User info - clickable to go to profile */}
+              <button
+                onClick={() => setActiveTab("profile")}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+              >
                 <User className="w-4 h-4 text-gray-600" />
                 <span className="text-sm text-gray-700">
                   {user?.firstName} {user?.lastName}
@@ -256,7 +260,7 @@ export default function App() {
                 <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
                   {user?.role}
                 </span>
-              </div>
+              </button>
 
               {/* Notifications */}
               <button
@@ -317,6 +321,13 @@ export default function App() {
             <NotificationCenter
               notifications={notifications}
               setNotifications={handleSetNotifications}
+            />
+          )}
+          {activeTab === "profile" && (
+            <Profile
+              user={user}
+              onUserUpdate={updateUser}
+              onBack={() => setActiveTab("dashboard")}
             />
           )}
         </div>
