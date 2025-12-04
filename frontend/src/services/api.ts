@@ -317,6 +317,23 @@ export const equipmentApi = {
     return apiRequest(`/equipment/${equipmentId}`);
   },
 
+  create: async (equipment: {
+    name: string;
+    category: string;
+    location: string;
+    serialNumber?: string;
+    notes?: string;
+  }): Promise<{ success: boolean; data: { equipment: any } }> => {
+    return apiRequest('/equipment', {
+      method: 'POST',
+      body: JSON.stringify(equipment),
+    });
+  },
+
+  getAllBookings: async (): Promise<{ success: boolean; data: { bookings: any[] } }> => {
+    return apiRequest('/equipment/bookings');
+  },
+
   getMyBookings: async (): Promise<{ success: boolean; data: { bookings: any[] } }> => {
     return apiRequest('/equipment/bookings/me');
   },

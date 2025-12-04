@@ -116,6 +116,16 @@ pub struct GetBookingsQuery {
     pub upcoming: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateEquipmentRequest {
+    pub name: String,
+    pub category: String,
+    pub location: String,
+    pub serial_number: Option<String>,
+    pub notes: Option<String>,
+}
+
 impl Equipment {
     pub fn new(
         name: String,

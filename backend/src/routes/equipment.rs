@@ -3,14 +3,16 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::models::equipment::{
-    Booking, CheckAvailabilityRequest, CreateBookingRequest, Equipment, GetBookingsQuery,
-    GetEquipmentQuery,
+    Booking, CheckAvailabilityRequest, CreateBookingRequest, CreateEquipmentRequest, Equipment,
+    GetBookingsQuery, GetEquipmentQuery,
 };
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/equipment")
             .route("", web::get().to(get_equipment))
+            .route("", web::post().to(create_equipment))
+            .route("/bookings", web::get().to(get_all_bookings))
             .route("/bookings/me", web::get().to(get_my_bookings))
             .route("/{equipment_id}", web::get().to(get_equipment_details))
             .route("/{equipment_id}/bookings", web::post().to(create_booking))
@@ -78,6 +80,173 @@ async fn get_equipment(
                         "total": equipment_json.len(),
                         "count": equipment_json.len()
                     }
+                }
+            }))
+        }
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Database error"
+                }
+            }))
+        }
+    }
+}
+
+async fn create_equipment(
+    pool: web::Data<SqlitePool>,
+    req: HttpRequest,
+    body: web::Json<CreateEquipmentRequest>,
+) -> HttpResponse {
+    // Check if user is authenticated
+    let _user_id = match req.extensions().get::<String>() {
+        Some(id) => id.clone(),
+        None => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Not authenticated"
+                }
+            }));
+        }
+    };
+
+    let equipment_id = Uuid::new_v4().to_string();
+
+    let result = sqlx::query(
+        "INSERT INTO equipment (id, name, category, location, status, serial_number, notes, created_at, updated_at) VALUES (?, ?, ?, ?, 'available', ?, ?, datetime('now'), datetime('now'))"
+    )
+    .bind(&equipment_id)
+    .bind(&body.name)
+    .bind(&body.category)
+    .bind(&body.location)
+    .bind(&body.serial_number)
+    .bind(&body.notes)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Created().json(serde_json::json!({
+            "success": true,
+            "data": {
+                "equipment": {
+                    "id": equipment_id,
+                    "name": body.name,
+                    "category": body.category,
+                    "location": body.location,
+                    "status": "available",
+                    "serialNumber": body.serial_number,
+                    "notes": body.notes
+                }
+            }
+        })),
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to create equipment"
+                }
+            }))
+        }
+    }
+}
+
+async fn get_all_bookings(pool: web::Data<SqlitePool>, req: HttpRequest) -> HttpResponse {
+    // Check if user is authenticated
+    let _user_id = match req.extensions().get::<String>() {
+        Some(id) => id.clone(),
+        None => {
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Not authenticated"
+                }
+            }));
+        }
+    };
+
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(
+        "SELECT b.id, b.equipment_id, b.user_id, b.department, b.start_date, b.end_date, b.purpose, b.status, b.created_at, b.updated_at, e.name as equipment_name 
+         FROM bookings b 
+         LEFT JOIN equipment e ON b.equipment_id = e.id 
+         WHERE b.status = 'active' 
+         ORDER BY b.start_date",
+    )
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(bookings) => {
+            // Get user names for each booking
+            let mut bookings_json: Vec<serde_json::Value> = Vec::new();
+
+            for (
+                id,
+                equipment_id,
+                user_id,
+                department,
+                start_date,
+                end_date,
+                purpose,
+                status,
+                created_at,
+                _updated_at,
+                equipment_name,
+            ) in bookings
+            {
+                // Get user name
+                let user_name = sqlx::query_as::<_, (String, String)>(
+                    "SELECT first_name, last_name FROM users WHERE id = ?",
+                )
+                .bind(&user_id)
+                .fetch_optional(pool.get_ref())
+                .await
+                .ok()
+                .flatten()
+                .map(|(f, l)| format!("{} {}", f, l))
+                .unwrap_or_else(|| "Unknown".to_string());
+
+                bookings_json.push(serde_json::json!({
+                    "id": id,
+                    "equipmentId": equipment_id,
+                    "equipmentName": equipment_name.unwrap_or_else(|| "Unknown".to_string()),
+                    "userId": user_id,
+                    "bookedBy": user_name,
+                    "department": department,
+                    "startDate": start_date,
+                    "endDate": end_date,
+                    "purpose": purpose,
+                    "status": status,
+                    "createdAt": created_at
+                }));
+            }
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": {
+                    "bookings": bookings_json
                 }
             }))
         }
@@ -369,7 +538,7 @@ async fn get_my_bookings(
     .fetch_optional(pool.get_ref())
     .await;
 
-    let (first_name, last_name, _user_department) = user.ok().flatten().unwrap_or((
+    let (first_name, last_name, user_department) = user.ok().flatten().unwrap_or((
         "Unknown".to_string(),
         "User".to_string(),
         "IT".to_string(),

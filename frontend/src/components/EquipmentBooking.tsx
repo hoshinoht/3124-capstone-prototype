@@ -1,12 +1,20 @@
 import { useState, useEffect } from "react";
-import { Search, Calendar as CalendarIcon, AlertCircle, Loader2 } from "lucide-react";
+import { Search, Calendar as CalendarIcon, AlertCircle, Loader2, Plus, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Alert, AlertDescription } from "./ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { equipmentApi } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -27,17 +35,21 @@ interface Booking {
   startDate: string;
   endDate: string;
   purpose: string;
+  userId?: string;
 }
 
 export function EquipmentBooking() {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [showBookDialog, setShowBookDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [conflictWarning, setConflictWarning] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
 
   const [bookings, setBookings] = useState<Booking[]>([]);
 
@@ -45,6 +57,14 @@ export function EquipmentBooking() {
     startDate: "",
     endDate: "",
     purpose: "",
+  });
+
+  const [newEquipment, setNewEquipment] = useState({
+    name: "",
+    category: "",
+    location: "",
+    serialNumber: "",
+    notes: "",
   });
 
   // Fetch equipment and bookings from API
@@ -67,6 +87,26 @@ export function EquipmentBooking() {
           }
         } catch (err) {
           console.error("Failed to fetch equipment:", err);
+        }
+
+        // Fetch all bookings (to check what's booked)
+        try {
+          const response = await equipmentApi.getAllBookings();
+          if (response.data?.bookings) {
+            setAllBookings(response.data.bookings.map((b: any) => ({
+              id: b.id,
+              equipmentId: b.equipment_id || b.equipmentId,
+              equipmentName: b.equipment_name || b.equipmentName || "Unknown",
+              bookedBy: b.booked_by || b.bookedBy || "Unknown",
+              userId: b.user_id || b.userId,
+              department: b.department || "IT",
+              startDate: b.start_date || b.startDate || "",
+              endDate: b.end_date || b.endDate || "",
+              purpose: b.purpose || "",
+            })));
+          }
+        } catch (err) {
+          console.error("Failed to fetch all bookings:", err);
         }
 
         // Fetch user's bookings
@@ -102,6 +142,36 @@ export function EquipmentBooking() {
     item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Check if equipment is currently booked (today falls within a booking period)
+  const isCurrentlyBooked = (equipmentId: number) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return allBookings.some(booking => {
+      if (String(booking.equipmentId) !== String(equipmentId)) return false;
+      const startDate = new Date(booking.startDate);
+      const endDate = new Date(booking.endDate);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return today >= startDate && today <= endDate;
+    });
+  };
+
+  // Get current booking for equipment
+  const getCurrentBooking = (equipmentId: number) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return allBookings.find(booking => {
+      if (String(booking.equipmentId) !== String(equipmentId)) return false;
+      const startDate = new Date(booking.startDate);
+      const endDate = new Date(booking.endDate);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return today >= startDate && today <= endDate;
+    });
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -239,18 +309,59 @@ export function EquipmentBooking() {
 
   const handleCancelBooking = async (bookingId: number) => {
     const originalBookings = [...bookings];
+    const originalAllBookings = [...allBookings];
     setBookings(bookings.filter(b => b.id !== bookingId));
+    setAllBookings(allBookings.filter(b => b.id !== bookingId));
 
     try {
       await equipmentApi.cancelBooking(String(bookingId));
     } catch (err) {
       console.error("Failed to cancel booking:", err);
       setBookings(originalBookings);
+      setAllBookings(originalAllBookings);
+    }
+  };
+
+  const handleCreateEquipment = async () => {
+    if (!newEquipment.name || !newEquipment.category || !newEquipment.location) return;
+
+    try {
+      setCreating(true);
+      const response = await equipmentApi.create({
+        name: newEquipment.name,
+        category: newEquipment.category,
+        location: newEquipment.location,
+        serialNumber: newEquipment.serialNumber || undefined,
+        notes: newEquipment.notes || undefined,
+      });
+
+      if (response.data?.equipment) {
+        const created = response.data.equipment;
+        setEquipment([...equipment, {
+          id: created.id,
+          name: created.name,
+          category: created.category,
+          location: created.location,
+          status: created.status || "available",
+        }]);
+        setShowCreateDialog(false);
+        setNewEquipment({
+          name: "",
+          category: "",
+          location: "",
+          serialNumber: "",
+          notes: "",
+        });
+      }
+    } catch (err) {
+      console.error("Failed to create equipment:", err);
+    } finally {
+      setCreating(false);
     }
   };
 
   const getEquipmentBookings = (equipmentId: number) => {
-    return bookings.filter(b => b.equipmentId === equipmentId);
+    return allBookings.filter(b => String(b.equipmentId) === String(equipmentId));
   };
 
   if (loading) {
@@ -266,10 +377,18 @@ export function EquipmentBooking() {
       {/* Search and Filter */}
       <Card>
         <CardHeader>
-          <CardTitle>Equipment Booking System</CardTitle>
-          <CardDescription>
-            Book equipment and view availability to prevent scheduling conflicts
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle>Equipment Booking System</CardTitle>
+              <CardDescription>
+                Book equipment and view availability to prevent scheduling conflicts
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Equipment
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="relative">
@@ -288,6 +407,8 @@ export function EquipmentBooking() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredEquipment.map(item => {
           const itemBookings = getEquipmentBookings(item.id);
+          const currentlyBooked = isCurrentlyBooked(item.id);
+          const currentBooking = getCurrentBooking(item.id);
 
           return (
             <Card key={item.id} className="hover:shadow-lg transition-shadow">
@@ -297,8 +418,8 @@ export function EquipmentBooking() {
                     <CardTitle className="text-lg">{item.name}</CardTitle>
                     <CardDescription>{item.category}</CardDescription>
                   </div>
-                  <Badge className={getStatusColor(item.status)}>
-                    {item.status}
+                  <Badge className={getStatusColor(currentlyBooked ? "booked" : item.status)}>
+                    {currentlyBooked ? "booked" : item.status}
                   </Badge>
                 </div>
               </CardHeader>
@@ -308,11 +429,23 @@ export function EquipmentBooking() {
                     <span className="font-medium">Location:</span> {item.location}
                   </div>
 
-                  {itemBookings.length > 0 && (
+                  {currentlyBooked && currentBooking && (
                     <div className="text-sm">
-                      <p className="font-medium text-gray-700 mb-1">Current Bookings:</p>
-                      {itemBookings.map(booking => (
-                        <div key={booking.id} className="bg-yellow-50 border border-yellow-200 rounded p-2 mb-2">
+                      <p className="font-medium text-gray-700 mb-1">Currently Booked By:</p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                        <p className="text-gray-900">{currentBooking.bookedBy}</p>
+                        <p className="text-xs text-gray-600">
+                          Until {new Date(currentBooking.endDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {itemBookings.length > 0 && !currentlyBooked && (
+                    <div className="text-sm">
+                      <p className="font-medium text-gray-700 mb-1">Upcoming Bookings:</p>
+                      {itemBookings.slice(0, 2).map(booking => (
+                        <div key={booking.id} className="bg-blue-50 border border-blue-200 rounded p-2 mb-2">
                           <p className="text-gray-900">{booking.bookedBy}</p>
                           <p className="text-xs text-gray-600">
                             {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
@@ -325,12 +458,13 @@ export function EquipmentBooking() {
                   <Button
                     className="w-full"
                     onClick={() => handleBookEquipment(item)}
-                    disabled={item.status === "maintenance" || item.status === "in-use"}
+                    disabled={currentlyBooked || item.status === "maintenance" || item.status === "in-use"}
                   >
                     <CalendarIcon className="w-4 h-4 mr-2" />
-                    {item.status === "available" ? "Book Equipment" :
-                      item.status === "booked" ? "View Bookings" :
-                        "Not Available"}
+                    {currentlyBooked ? "Currently Booked" :
+                      item.status === "available" ? "Book Equipment" :
+                        item.status === "maintenance" || item.status === "in-use" ? "Not Available" :
+                          "Book Equipment"}
                   </Button>
                 </div>
               </CardContent>
@@ -441,6 +575,91 @@ export function EquipmentBooking() {
               disabled={!newBooking.startDate || !newBooking.endDate || !newBooking.purpose || !!conflictWarning}
             >
               Confirm Booking
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Equipment Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Add New Equipment
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="equipmentName">Equipment Name *</Label>
+              <Input
+                id="equipmentName"
+                placeholder="e.g., Dell Laptop XPS 15"
+                value={newEquipment.name}
+                onChange={(e) => setNewEquipment({ ...newEquipment, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="category">Category *</Label>
+              <Select
+                value={newEquipment.category}
+                onValueChange={(value) => setNewEquipment({ ...newEquipment, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="laptop">Laptop</SelectItem>
+                  <SelectItem value="desktop">Desktop</SelectItem>
+                  <SelectItem value="monitor">Monitor</SelectItem>
+                  <SelectItem value="projector">Projector</SelectItem>
+                  <SelectItem value="camera">Camera</SelectItem>
+                  <SelectItem value="networking">Networking Equipment</SelectItem>
+                  <SelectItem value="server">Server</SelectItem>
+                  <SelectItem value="peripheral">Peripheral</SelectItem>
+                  <SelectItem value="mobile">Mobile Device</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="location">Location *</Label>
+              <Input
+                id="location"
+                placeholder="e.g., IT Room, Floor 2"
+                value={newEquipment.location}
+                onChange={(e) => setNewEquipment({ ...newEquipment, location: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="serialNumber">Serial Number</Label>
+              <Input
+                id="serialNumber"
+                placeholder="Optional"
+                value={newEquipment.serialNumber}
+                onChange={(e) => setNewEquipment({ ...newEquipment, serialNumber: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Any additional notes about this equipment..."
+                value={newEquipment.notes}
+                onChange={(e) => setNewEquipment({ ...newEquipment, notes: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateEquipment}
+              disabled={creating || !newEquipment.name || !newEquipment.category || !newEquipment.location}
+            >
+              {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Add Equipment
             </Button>
           </DialogFooter>
         </DialogContent>
