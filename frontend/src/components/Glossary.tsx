@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, BookOpen, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, BookOpen, Plus, Loader2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { glossaryApi } from "../services/api";
 
 interface GlossaryTerm {
   id: number;
@@ -269,8 +270,34 @@ export function Glossary() {
     },
   ]);
 
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchGlossary = async () => {
+      try {
+        setLoading(true);
+        const data = await glossaryApi.getTerms();
+        if (data && data.length > 0) {
+          setTerms(data.map((t: any) => ({
+            id: t.id,
+            term: t.term,
+            definition: t.definition,
+            category: t.category || "General",
+          })));
+        }
+      } catch (err) {
+        console.error("Failed to fetch glossary:", err);
+        // Keep default mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGlossary();
+  }, []);
+
   const filteredTerms = terms.filter((term) => {
-    const matchesSearch = 
+    const matchesSearch =
       term.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
       term.definition.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = activeFilter === "All" || term.category === activeFilter;
@@ -282,20 +309,47 @@ export function Glossary() {
   const engineeringTerms = terms.filter(t => t.category === "Engineering").length;
   const searchResults = filteredTerms.length;
 
-  const handleAddTerm = () => {
+  const handleAddTerm = async () => {
     if (!newTerm.term || !newTerm.definition) return;
-    
+
+    const tempId = Date.now();
     const term: GlossaryTerm = {
-      id: terms.length + 1,
+      id: tempId,
       term: newTerm.term,
       definition: newTerm.definition,
       category: newTerm.category,
     };
-    
+
+    // Optimistic update
     setTerms([...terms, term]);
     setNewTerm({ term: "", definition: "", category: "IT" });
     setShowAddDialog(false);
+
+    try {
+      const createdTerm = await glossaryApi.createTerm({
+        term: newTerm.term,
+        definition: newTerm.definition,
+        category: newTerm.category,
+      });
+
+      // Update with real ID
+      setTerms(prev => prev.map(t =>
+        t.id === tempId ? { ...t, id: createdTerm.id } : t
+      ));
+    } catch (err) {
+      console.error("Failed to create term:", err);
+      // Remove on error
+      setTerms(prev => prev.filter(t => t.id !== tempId));
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -387,13 +441,13 @@ export function Glossary() {
           <Card key={term.id} className="p-5 hover:border-gray-300 transition-colors">
             <div className="flex items-start justify-between mb-3">
               <h3 className="text-lg text-gray-900">{term.term}</h3>
-              <Badge 
+              <Badge
                 className={
-                  term.category === "IT" 
-                    ? "bg-blue-100 text-blue-700 border-blue-300" 
+                  term.category === "IT"
+                    ? "bg-blue-100 text-blue-700 border-blue-300"
                     : term.category === "Engineering"
-                    ? "bg-green-100 text-green-700 border-green-300"
-                    : "bg-purple-100 text-purple-700 border-purple-300"
+                      ? "bg-green-100 text-green-700 border-green-300"
+                      : "bg-purple-100 text-purple-700 border-purple-300"
                 }
               >
                 {term.category}

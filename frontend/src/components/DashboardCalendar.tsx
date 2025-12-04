@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Search, Video, Package, FileText, PartyPopper } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Search, Video, Package, FileText, PartyPopper, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
+import { eventsApi } from "../services/api";
 
 interface CalendarEvent {
   id: number;
@@ -15,14 +16,41 @@ interface CalendarEvent {
 export function DashboardCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 8)); // January 8, 2026
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 0, 8));
+  const [loading, setLoading] = useState(true);
 
-  // Mock events
-  const events: CalendarEvent[] = [
+  // Default mock events
+  const [events, setEvents] = useState<CalendarEvent[]>([
     { id: 1, time: "9:30am", title: "MsTeams", description: "Meeting with NUHS", type: "meeting", date: new Date(2026, 0, 8) },
     { id: 2, time: "1:30pm", title: "MsTeams", description: "Interview - New Intern Applicant", type: "meeting", date: new Date(2026, 0, 8) },
     { id: 3, time: "3:00pm", title: "Delivery", description: "Delivery of IAQ sensors", type: "delivery", date: new Date(2026, 0, 8) },
     { id: 4, time: "6:00pm", title: "Use Case", description: "Submission of Use Case report to client", type: "deadline", date: new Date(2026, 0, 8) },
-  ];
+  ]);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        const eventsData = await eventsApi.getEvents();
+        if (eventsData && eventsData.length > 0) {
+          setEvents(eventsData.map((e: any) => ({
+            id: e.id,
+            time: e.time || new Date(e.start_time || e.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+            title: e.title,
+            description: e.description || "",
+            type: e.type || "meeting",
+            date: new Date(e.date || e.start_time),
+          })));
+        }
+      } catch (err) {
+        console.error("Failed to fetch events:", err);
+        // Keep default mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -31,21 +59,21 @@ export function DashboardCalendar() {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
-    
+
     return { daysInMonth, startingDayOfWeek };
   };
 
   const hasEventOnDate = (day: number) => {
-    return events.some(event => 
-      event.date.getDate() === day && 
+    return events.some(event =>
+      event.date.getDate() === day &&
       event.date.getMonth() === currentDate.getMonth() &&
       event.date.getFullYear() === currentDate.getFullYear()
     );
   };
 
   const getEventsForDate = (date: Date) => {
-    return events.filter(event => 
-      event.date.getDate() === date.getDate() && 
+    return events.filter(event =>
+      event.date.getDate() === date.getDate() &&
       event.date.getMonth() === date.getMonth() &&
       event.date.getFullYear() === date.getFullYear()
     );
@@ -89,6 +117,14 @@ export function DashboardCalendar() {
 
   const selectedDateEvents = getEventsForDate(selectedDate);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm">
 
@@ -120,27 +156,26 @@ export function DashboardCalendar() {
                 {day}
               </div>
             ))}
-            
+
             {/* Empty cells before month starts */}
             {Array.from({ length: startingDayOfWeek }).map((_, index) => (
               <div key={`empty-${index}`}></div>
             ))}
-            
+
             {/* Calendar days */}
             {Array.from({ length: daysInMonth }).map((_, index) => {
               const day = index + 1;
               const hasEvent = hasEventOnDate(day);
               const isNewYear = day === 1 && currentDate.getMonth() === 0;
-              const isSelected = selectedDate.getDate() === day && 
-                               selectedDate.getMonth() === currentDate.getMonth();
-              
+              const isSelected = selectedDate.getDate() === day &&
+                selectedDate.getMonth() === currentDate.getMonth();
+
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day))}
-                  className={`aspect-square flex items-center justify-center text-2xl relative hover:bg-gray-100 rounded transition-colors ${
-                    isSelected ? 'bg-blue-100 border-2 border-blue-500' : ''
-                  }`}
+                  className={`aspect-square flex items-center justify-center text-2xl relative hover:bg-gray-100 rounded transition-colors ${isSelected ? 'bg-blue-100 border-2 border-blue-500' : ''
+                    }`}
                 >
                   {day}
                   {isNewYear && (
@@ -162,7 +197,7 @@ export function DashboardCalendar() {
           <div className="mb-4">
             <label className="block mb-2">Select Date</label>
             <div className="relative">
-              <Input 
+              <Input
                 value={selectedDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 readOnly
                 className="pr-10"

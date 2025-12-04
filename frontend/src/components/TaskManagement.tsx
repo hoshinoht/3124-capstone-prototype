@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Download, MapPin, Building, Factory, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Download, MapPin, Building, Factory, Users, Loader2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,6 +9,7 @@ import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import { Search } from "lucide-react";
+import { tasksApi, equipmentApi, locationsApi } from "../services/api";
 
 interface Task {
   id: number;
@@ -45,65 +46,84 @@ interface PersonnelRecord {
 
 type TabType = "tasks" | "addTask" | "equipmentBooking" | "personnel";
 
+// Default mock data as fallback
+const defaultTasks: Task[] = [
+  {
+    id: 1,
+    title: "Submit Use Case Report to Client",
+    description: "Final review and submission of the use case documentation for the IAQ sensor project",
+    urgency: "urgent",
+    deadline: "Today",
+    completed: false,
+  },
+  {
+    id: 2,
+    title: "Prepare for New Intern Interview",
+    description: "Review candidate resumes and prepare interview questions",
+    urgency: "urgent",
+    deadline: "Tomorrow",
+    completed: false,
+  },
+  {
+    id: 3,
+    title: "Send Monthly Status Report",
+    description: "Compile and send monthly progress report to stakeholders",
+    urgency: "low",
+    deadline: "Nov 30, 2025",
+    completed: false,
+  },
+];
+
+const defaultPersonnelRecords: PersonnelRecord[] = [
+  {
+    id: 1,
+    name: "Michael Chen",
+    role: "Field Engineer",
+    location: "Client Site - TechCorp",
+    checkIn: "09:28 AM",
+    checkOut: null,
+    hours: 0.2,
+    method: "Mobile",
+    status: "Active",
+    avatar: "MC",
+    locationIcon: "client",
+  },
+  {
+    id: 2,
+    name: "Sarah Johnson",
+    role: "Senior Engineer",
+    location: "Corporate Headquarters",
+    checkIn: "08:30 AM",
+    checkOut: null,
+    hours: 1.2,
+    method: "Mobile",
+    status: "Active",
+    avatar: "SJ",
+    locationIcon: "corporate",
+  },
+  {
+    id: 3,
+    name: "David Park",
+    role: "Field Technician",
+    location: "Manufacturing Plant North",
+    checkIn: "07:45 AM",
+    checkOut: null,
+    hours: 1.9,
+    method: "Mobile",
+    status: "Active",
+    avatar: "DP",
+    locationIcon: "manufacturing",
+  },
+];
+
 export function TaskManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("tasks");
   const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 20)); // November 20, 2025
+  const [loading, setLoading] = useState(true);
 
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: 1,
-      title: "Submit Use Case Report to Client",
-      description: "Final review and submission of the use case documentation for the IAQ sensor project",
-      urgency: "urgent",
-      deadline: "Today",
-      completed: false,
-    },
-    {
-      id: 2,
-      title: "Prepare for New Intern Interview",
-      description: "Review candidate resumes and prepare interview questions",
-      urgency: "urgent",
-      deadline: "Tomorrow",
-      completed: false,
-    },
-    {
-      id: 3,
-      title: "Send Monthly Status Report",
-      description: "Compile and send monthly progress report to stakeholders",
-      urgency: "low",
-      deadline: "Nov 30, 2025",
-      completed: false,
-    },
-    {
-      id: 4,
-      title: "Update Project Documentation",
-      description: "Ensure all technical documentation is up to date in the wiki",
-      urgency: "low",
-      deadline: "Dec 04, 2025",
-      completed: false,
-    },
-  ]);
+  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
 
-  const [bookings, setBookings] = useState<EquipmentBooking[]>([
-    {
-      id: 1,
-      equipmentName: "Conference Room A",
-      startTime: "09:30",
-      endTime: "11:00",
-      bookedBy: "Sarah Chen",
-      purpose: "Meeting with NUHS partners",
-      date: "November 20, 2025",
-    },
-    {
-      id: 2,
-      equipmentName: "Conference Room A",
-      startTime: "13:30",
-      endTime: "15:00",
-      bookedBy: "John Smith",
-      purpose: "Interview with new intern applicant",
-      date: "November 20, 2025",
-    },
-  ]);
+  const [bookings, setBookings] = useState<EquipmentBooking[]>([]);
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -120,94 +140,70 @@ export function TaskManagement() {
     purpose: "",
   });
 
-  const [personnelRecords] = useState<PersonnelRecord[]>([
-    {
-      id: 1,
-      name: "Michael Chen",
-      role: "Field Engineer",
-      location: "Client Site - TechCorp",
-      checkIn: "09:28 AM",
-      checkOut: null,
-      hours: 0.2,
-      method: "Mobile",
-      status: "Active",
-      avatar: "MC",
-      locationIcon: "client",
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      role: "Senior Engineer",
-      location: "Corporate Headquarters",
-      checkIn: "08:30 AM",
-      checkOut: null,
-      hours: 1.2,
-      method: "Mobile",
-      status: "Active",
-      avatar: "SJ",
-      locationIcon: "corporate",
-    },
-    {
-      id: 3,
-      name: "David Park",
-      role: "Field Technician",
-      location: "Manufacturing Plant North",
-      checkIn: "07:45 AM",
-      checkOut: null,
-      hours: 1.9,
-      method: "Mobile",
-      status: "Active",
-      avatar: "DP",
-      locationIcon: "manufacturing",
-    },
-    {
-      id: 4,
-      name: "Emily Rodriguez",
-      role: "Project Manager",
-      location: "Client Site - TechCorp",
-      checkIn: "09:00 AM",
-      checkOut: "05:30 PM",
-      hours: 8.5,
-      method: "Mobile",
-      status: "Completed",
-      avatar: "ER",
-      locationIcon: "client",
-    },
-    {
-      id: 5,
-      name: "James Wilson",
-      role: "Equipment Specialist",
-      location: "Distribution Center",
-      checkIn: "08:15 AM",
-      checkOut: null,
-      hours: 1.4,
-      method: "Mobile",
-      status: "Active",
-      avatar: "JW",
-      locationIcon: "distribution",
-    },
-    {
-      id: 6,
-      name: "Lisa Anderson",
-      role: "Field Engineer",
-      location: "Corporate Headquarters",
-      checkIn: "08:50 AM",
-      checkOut: "12:20 PM",
-      hours: 3.5,
-      method: "Mobile",
-      status: "Completed",
-      avatar: "LA",
-      locationIcon: "corporate",
-    },
-  ]);
+  const [personnelRecords, setPersonnelRecords] = useState<PersonnelRecord[]>(defaultPersonnelRecords);
+
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch tasks
+        try {
+          const tasksData = await tasksApi.getTasks();
+          if (tasksData && tasksData.length > 0) {
+            setTasks(tasksData.map((t: any) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description || "",
+              urgency: t.priority === "high" ? "urgent" : "low",
+              deadline: t.due_date || "No deadline",
+              completed: t.is_completed || false,
+            })));
+          }
+        } catch (err) {
+          console.error("Failed to fetch tasks:", err);
+        }
+
+        // Fetch personnel/locations
+        try {
+          const locationsData = await locationsApi.getLocations();
+          if (locationsData && locationsData.length > 0) {
+            setPersonnelRecords(locationsData.map((l: any) => ({
+              id: l.id,
+              name: l.user_name || "Unknown",
+              role: l.role || "Staff",
+              location: l.location_name || l.current_location || "Unknown",
+              checkIn: l.check_in_time || "-",
+              checkOut: l.check_out_time || null,
+              hours: l.hours_worked || 0,
+              method: "Mobile",
+              status: l.check_out_time ? "Completed" : "Active",
+              avatar: (l.user_name || "UN").split(" ").map((n: string) => n[0]).join("").toUpperCase(),
+              locationIcon: "client" as const,
+            })));
+          }
+        } catch (err) {
+          console.error("Failed to fetch locations:", err);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [siteFilter, setSiteFilter] = useState("All Sites");
   const [statusFilter, setStatusFilter] = useState("All Status");
 
   const filteredPersonnel = personnelRecords.filter((person) => {
-    const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         person.location.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      person.location.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSite = siteFilter === "All Sites" || person.location.includes(siteFilter);
     const matchesStatus = statusFilter === "All Status" || person.status === statusFilter;
     return matchesSearch && matchesSite && matchesStatus;
@@ -224,7 +220,7 @@ export function TaskManagement() {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
-    
+
     return { daysInMonth, startingDayOfWeek };
   };
 
@@ -241,42 +237,81 @@ export function TaskManagement() {
   const monthNames = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"];
 
-  const handleToggleTask = (taskId: number) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
+  const handleToggleTask = async (taskId: number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Optimistic update
+    setTasks(tasks.map(t =>
+      t.id === taskId ? { ...t, completed: !t.completed } : t
     ));
+
+    try {
+      await tasksApi.updateTask(taskId, { is_completed: !task.completed });
+    } catch (err) {
+      console.error("Failed to update task:", err);
+      // Revert on error
+      setTasks(tasks.map(t =>
+        t.id === taskId ? { ...t, completed: task.completed } : t
+      ));
+    }
   };
 
-  const handleDeleteTask = (taskId: number) => {
+  const handleDeleteTask = async (taskId: number) => {
+    const originalTasks = [...tasks];
     setTasks(tasks.filter(task => task.id !== taskId));
+
+    try {
+      await tasksApi.deleteTask(taskId);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      setTasks(originalTasks);
+    }
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!newTask.title || !newTask.deadline) return;
-    
+
+    const tempId = Date.now();
     const task: Task = {
-      id: tasks.length + 1,
+      id: tempId,
       title: newTask.title,
       description: newTask.description,
       urgency: newTask.urgency === "medium" ? "low" : newTask.urgency,
       deadline: newTask.deadline,
       completed: false,
     };
-    
+
+    // Optimistic update
     setTasks([...tasks, task]);
     setNewTask({ title: "", description: "", deadline: "", urgency: "medium" });
     setActiveTab("tasks");
-  };
 
-  const handleBookEquipment = () => {
+    try {
+      const createdTask = await tasksApi.createTask({
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.urgency === "urgent" ? "high" : newTask.urgency === "medium" ? "medium" : "low",
+        due_date: newTask.deadline,
+      });
+
+      // Update with real ID
+      setTasks(prev => prev.map(t =>
+        t.id === tempId ? { ...t, id: createdTask.id } : t
+      ));
+    } catch (err) {
+      console.error("Failed to create task:", err);
+      setTasks(prev => prev.filter(t => t.id !== tempId));
+    }
+  }; const handleBookEquipment = () => {
     if (!newBooking.equipmentName || !newBooking.startTime || !newBooking.endTime || !newBooking.bookedBy) return;
-    
+
     const booking: EquipmentBooking = {
       id: bookings.length + 1,
       ...newBooking,
       date: "November 20, 2025",
     };
-    
+
     setBookings([...bookings, booking]);
     setNewBooking({ equipmentName: "", startTime: "", endTime: "", bookedBy: "", purpose: "" });
   };
@@ -323,6 +358,14 @@ export function TaskManagement() {
     const index = avatar.charCodeAt(0) % colors.length;
     return colors[index];
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 rounded-lg p-8">
@@ -371,25 +414,24 @@ export function TaskManagement() {
                 {day}
               </div>
             ))}
-            
+
             {/* Empty cells before month starts */}
             {Array.from({ length: startingDayOfWeek }).map((_, index) => (
               <div key={`empty-${index}`} className="aspect-square"></div>
             ))}
-            
+
             {/* Calendar days */}
             {Array.from({ length: daysInMonth }).map((_, index) => {
               const day = index + 1;
               const isSelected = day === 20; // Highlighting Nov 20
-              
+
               return (
                 <button
                   key={day}
-                  className={`aspect-square flex items-center justify-center text-sm rounded transition-colors ${
-                    isSelected 
-                      ? 'bg-black text-white' 
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
+                  className={`aspect-square flex items-center justify-center text-sm rounded transition-colors ${isSelected
+                    ? 'bg-black text-white'
+                    : 'hover:bg-gray-100 text-gray-700'
+                    }`}
                 >
                   {day}
                 </button>
@@ -404,41 +446,37 @@ export function TaskManagement() {
           <div className="flex gap-2 bg-white rounded-lg p-1 shadow-sm">
             <button
               onClick={() => setActiveTab("tasks")}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${
-                activeTab === "tasks"
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "tasks"
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               Tasks
             </button>
             <button
               onClick={() => setActiveTab("addTask")}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${
-                activeTab === "addTask"
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "addTask"
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               Add Task
             </button>
             <button
               onClick={() => setActiveTab("equipmentBooking")}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${
-                activeTab === "equipmentBooking"
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "equipmentBooking"
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               Equipment Booking
             </button>
             <button
               onClick={() => setActiveTab("personnel")}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${
-                activeTab === "personnel"
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "personnel"
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-600 hover:text-gray-900"
+                }`}
             >
               Personnel
             </button>
@@ -779,10 +817,10 @@ export function TaskManagement() {
                             <p className="text-xs text-gray-500">Method</p>
                             <p className="text-sm text-gray-900">{person.method}</p>
                           </div>
-                          <Badge 
+                          <Badge
                             className={
-                              person.status === "Active" 
-                                ? "bg-green-100 text-green-700 border-green-300" 
+                              person.status === "Active"
+                                ? "bg-green-100 text-green-700 border-green-300"
                                 : "bg-gray-100 text-gray-700 border-gray-300"
                             }
                           >

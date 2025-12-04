@@ -17,6 +17,7 @@ mod models {
 
 mod routes {
     pub mod auth;
+    pub mod dashboard;
     pub mod equipment;
     pub mod events;
     pub mod glossary;
@@ -33,7 +34,8 @@ use actix_web::{App, HttpServer, web};
 use log::info;
 use middleware::{auth::Auth, logging::Logger};
 use routes::{
-    auth, dashboard, equipment, events, glossary, locations, notifications, quick_links, search, tasks, users,
+    auth, dashboard, equipment, events, glossary, locations, notifications, quick_links, search,
+    tasks, users,
 };
 
 use sqlx::SqlitePool;
