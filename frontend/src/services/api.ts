@@ -409,6 +409,21 @@ export const glossaryApi = {
       }),
     });
   },
+
+  updateTerm: async (
+    termId: string,
+    updates: {
+      term?: string;
+      definition?: string;
+      categoryId?: string;
+      department?: string;
+    }
+  ): Promise<{ success: boolean; data: { term: any } }> => {
+    return apiRequest(`/glossary/terms/${termId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
 };
 
 // Notifications API

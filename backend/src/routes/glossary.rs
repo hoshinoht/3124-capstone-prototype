@@ -113,19 +113,29 @@ async fn get_terms(pool: web::Data<SqlitePool>, query: web::Query<GetTermsQuery>
 async fn get_term(pool: web::Data<SqlitePool>, path: web::Path<String>) -> HttpResponse {
     let term_id = path.into_inner();
 
-    let result = sqlx::query_as::<_, GlossaryTerm>(
-        "SELECT id, term, definition, category_id, department, related_terms, examples, is_approved, created_by, created_at, updated_at FROM glossary_terms WHERE id = ?"
+    let result = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, bool, String, Option<String>, Option<String>)>(
+        "SELECT id, acronym, full_name, definition, category_id, is_approved, created_by, created_at, updated_at FROM glossary_terms WHERE id = ?"
     )
     .bind(&term_id)
     .fetch_optional(pool.get_ref())
     .await;
 
     match result {
-        Ok(Some(term)) => {
+        Ok(Some((
+            id,
+            acronym,
+            full_name,
+            definition,
+            category_id,
+            is_approved,
+            created_by,
+            created_at,
+            updated_at,
+        ))) => {
             // Get category name
             let category =
                 sqlx::query_as::<_, (String,)>("SELECT name FROM glossary_categories WHERE id = ?")
-                    .bind(&term.category_id)
+                    .bind(&category_id)
                     .fetch_optional(pool.get_ref())
                     .await
                     .ok()
@@ -135,18 +145,16 @@ async fn get_term(pool: web::Data<SqlitePool>, path: web::Path<String>) -> HttpR
                 "success": true,
                 "data": {
                     "term": {
-                        "id": term.id,
-                        "term": term.term,
-                        "definition": term.definition,
-                        "categoryId": term.category_id,
+                        "id": id,
+                        "acronym": acronym,
+                        "fullName": full_name,
+                        "definition": definition,
+                        "categoryId": category_id,
                         "categoryName": category.map(|(n,)| n),
-                        "department": term.department,
-                        "relatedTerms": term.related_terms.as_ref().map(|rt| rt.split(',').collect::<Vec<_>>()).unwrap_or_default(),
-                        "examples": term.examples.as_ref().map(|e| e.split("|||").collect::<Vec<_>>()).unwrap_or_default(),
-                        "isApproved": term.is_approved,
-                        "createdBy": term.created_by,
-                        "createdAt": term.created_at,
-                        "updatedAt": term.updated_at
+                        "isApproved": is_approved,
+                        "createdBy": created_by,
+                        "createdAt": created_at,
+                        "updatedAt": updated_at
                     }
                 }
             }))
@@ -277,22 +285,17 @@ async fn update_term(
 
     let mut updates = vec![];
     if let Some(ref term) = body.term {
-        updates.push(format!("term = '{}'", term));
+        updates.push(format!("acronym = '{}'", term));
+        updates.push(format!("full_name = '{}'", term));
     }
     if let Some(ref definition) = body.definition {
         updates.push(format!("definition = '{}'", definition));
     }
     if let Some(ref category_id) = body.category_id {
-        updates.push(format!("category_id = '{}'", category_id));
-    }
-    if let Some(ref department) = body.department {
-        updates.push(format!("department = '{}'", department));
-    }
-    if let Some(ref related_terms) = body.related_terms {
-        updates.push(format!("related_terms = '{}'", related_terms.join(",")));
-    }
-    if let Some(ref examples) = body.examples {
-        updates.push(format!("examples = '{}'", examples.join("|||")));
+        // Only update if it's a valid UUID, otherwise set to NULL
+        if uuid::Uuid::parse_str(category_id).is_ok() {
+            updates.push(format!("category_id = '{}'", category_id));
+        }
     }
 
     if updates.is_empty() {
@@ -321,7 +324,7 @@ async fn update_term(
             if rows.rows_affected() > 0 {
                 // Log to glossary_history
                 let _ = sqlx::query(
-                    "INSERT INTO glossary_history (id, term_id, action, changed_by, changes) VALUES (?, ?, 'updated', ?, ?)"
+                    "INSERT INTO glossary_history (id, term_id, action, user_id, new_value) VALUES (?, ?, 'updated', ?, ?)"
                 )
                 .bind(Uuid::new_v4().to_string())
                 .bind(&term_id)
@@ -331,28 +334,37 @@ async fn update_term(
                 .await;
 
                 // Fetch updated term
-                let term = sqlx::query_as::<_, GlossaryTerm>(
-                    "SELECT id, term, definition, category_id, department, related_terms, examples, is_approved, created_by, created_at, updated_at FROM glossary_terms WHERE id = ?"
+                let term = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, bool, String, Option<String>, Option<String>)>(
+                    "SELECT id, acronym, full_name, definition, category_id, is_approved, created_by, created_at, updated_at FROM glossary_terms WHERE id = ?"
                 )
                 .bind(&term_id)
                 .fetch_optional(pool.get_ref())
                 .await;
 
                 match term {
-                    Ok(Some(t)) => HttpResponse::Ok().json(serde_json::json!({
+                    Ok(Some((
+                        id,
+                        acronym,
+                        full_name,
+                        definition,
+                        category_id,
+                        is_approved,
+                        created_by,
+                        created_at,
+                        updated_at,
+                    ))) => HttpResponse::Ok().json(serde_json::json!({
                         "success": true,
                         "data": {
                             "term": {
-                                "id": t.id,
-                                "term": t.term,
-                                "definition": t.definition,
-                                "categoryId": t.category_id,
-                                "department": t.department,
-                                "relatedTerms": t.related_terms.as_ref().map(|rt| rt.split(',').collect::<Vec<_>>()).unwrap_or_default(),
-                                "examples": t.examples.as_ref().map(|e| e.split("|||").collect::<Vec<_>>()).unwrap_or_default(),
-                                "isApproved": t.is_approved,
-                                "createdBy": t.created_by,
-                                "updatedAt": t.updated_at
+                                "id": id,
+                                "acronym": acronym,
+                                "fullName": full_name,
+                                "definition": definition,
+                                "categoryId": category_id,
+                                "isApproved": is_approved,
+                                "createdBy": created_by,
+                                "createdAt": created_at,
+                                "updatedAt": updated_at
                             }
                         }
                     })),
@@ -362,7 +374,7 @@ async fn update_term(
                             "code": "NOT_FOUND",
                             "message": "Term not found"
                         }
-                    }))
+                    })),
                 }
             } else {
                 HttpResponse::NotFound().json(serde_json::json!({
@@ -580,25 +592,18 @@ async fn search_terms(pool: web::Data<SqlitePool>, query: web::Query<SearchQuery
         }));
     }
 
-    let mut sql = String::from(
-        "SELECT t.id, t.term, t.definition, t.category_id, c.name as category_name, t.department
+    let sql = String::from(
+        "SELECT t.id, t.acronym, t.full_name, t.definition, t.category_id, c.name as category_name
          FROM glossary_terms t
          LEFT JOIN glossary_categories c ON t.category_id = c.id
-         WHERE (t.term LIKE ? OR t.definition LIKE ?)",
+         WHERE (t.acronym LIKE ? OR t.full_name LIKE ? OR t.definition LIKE ?)
+         ORDER BY CASE WHEN t.acronym LIKE ? THEN 0 ELSE 1 END, t.acronym
+         LIMIT ?",
     );
-
-    if let Some(ref department) = query.department {
-        sql.push_str(&format!(
-            " AND (t.department = '{}' OR t.department = 'Both')",
-            department
-        ));
-    }
-
-    sql.push_str(" ORDER BY CASE WHEN t.term LIKE ? THEN 0 ELSE 1 END, t.term");
-    sql.push_str(&format!(" LIMIT {}", query.limit.unwrap_or(20)));
 
     let search_pattern = format!("%{}%", search);
     let starts_with = format!("{}%", search);
+    let limit = query.limit.unwrap_or(20);
 
     let result = sqlx::query_as::<
         _,
@@ -608,12 +613,14 @@ async fn search_terms(pool: web::Data<SqlitePool>, query: web::Query<SearchQuery
             String,
             Option<String>,
             Option<String>,
-            String,
+            Option<String>,
         ),
     >(&sql)
     .bind(&search_pattern)
     .bind(&search_pattern)
+    .bind(&search_pattern)
     .bind(&starts_with)
+    .bind(limit)
     .fetch_all(pool.get_ref())
     .await;
 
@@ -622,14 +629,14 @@ async fn search_terms(pool: web::Data<SqlitePool>, query: web::Query<SearchQuery
             let terms_json: Vec<serde_json::Value> = terms
                 .iter()
                 .map(
-                    |(id, term, definition, category_id, category_name, department)| {
+                    |(id, acronym, full_name, definition, category_id, category_name)| {
                         serde_json::json!({
                             "id": id,
-                            "term": term,
+                            "acronym": acronym,
+                            "fullName": full_name,
                             "definition": definition,
                             "categoryId": category_id,
-                            "categoryName": category_name,
-                            "department": department
+                            "categoryName": category_name
                         })
                     },
                 )

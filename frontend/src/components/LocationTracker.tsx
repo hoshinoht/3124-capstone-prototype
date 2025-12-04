@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { MapPin, Search, CheckCircle, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { MapPin, Search, CheckCircle, Loader2, Download } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -204,6 +204,34 @@ export function LocationTracker() {
     record.memberName.toLowerCase().includes(searchMember.toLowerCase())
   );
 
+  const handleExportCSV = () => {
+    // Create CSV content
+    const headers = ["Member Name", "Location", "Check In", "Check Out"];
+    const csvRows = [
+      headers.join(","),
+      ...filteredRecords.map(record =>
+        [
+          `"${record.memberName}"`,
+          `"${record.location}"`,
+          `"${record.checkIn}"`,
+          `"${record.checkOut || ''}"`
+        ].join(",")
+      )
+    ];
+    const csvContent = csvRows.join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `clock-in-out-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -329,7 +357,18 @@ export function LocationTracker() {
         {/* Clock In/Out Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Clock In/Out</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Clock In/Out</CardTitle>
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                size="sm"
+                disabled={filteredRecords.length === 0}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {/* Search Inputs */}

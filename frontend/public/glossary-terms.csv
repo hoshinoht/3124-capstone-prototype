@@ -1,0 +1,76 @@
+Term,Definition,Category
+API,"Application Programming Interface - A set of protocols and tools for building software applications that specify how software components should interact",IT
+REST,"Representational State Transfer - An architectural style for designing networked applications using HTTP requests to access and manipulate data",IT
+CI/CD,"Continuous Integration/Continuous Deployment - Development practices that automate building, testing, and deploying code changes",IT
+JWT,"JSON Web Token - A compact, URL-safe token format used for securely transmitting information between parties as a JSON object",IT
+OAuth,"Open Authorization - An open standard for access delegation, commonly used for token-based authentication",IT
+DNS,"Domain Name System - The hierarchical naming system that translates human-readable domain names into IP addresses",IT
+HTTPS,"Hypertext Transfer Protocol Secure - An encrypted version of HTTP that uses TLS/SSL for secure communication",IT
+SQL,"Structured Query Language - A programming language used to manage and manipulate relational databases",IT
+NoSQL,"Non-relational database systems designed for distributed data stores with flexible schemas and horizontal scaling",IT
+SSH,"Secure Shell - A cryptographic network protocol for secure remote login and command execution over an unsecured network",IT
+VPN,"Virtual Private Network - A technology that creates a secure, encrypted connection over a less secure network",IT
+IoT,"Internet of Things - A network of physical devices embedded with sensors and software that connect and exchange data",IT
+CDN,"Content Delivery Network - A geographically distributed group of servers that work together to provide fast delivery of internet content",IT
+CORS,"Cross-Origin Resource Sharing - A security feature that allows or restricts web applications from making requests to different domains",IT
+WebSocket,"A communication protocol that provides full-duplex communication channels over a single TCP connection",IT
+CRUD,"Create, Read, Update, Delete - The four basic operations for persistent storage in database applications",IT
+MFA,"Multi-Factor Authentication - A security system requiring multiple methods of authentication to verify user identity",IT
+SDK,"Software Development Kit - A collection of software tools and libraries used to develop applications for specific platforms",IT
+IDE,"Integrated Development Environment - A software application providing comprehensive facilities for software development",IT
+DevOps,"Development Operations - A set of practices combining software development and IT operations to shorten development cycles",IT
+SCADA,"Supervisory Control and Data Acquisition - A control system architecture used for high-level process supervisory management in industrial facilities",Engineering
+PLC,"Programmable Logic Controller - An industrial computer used to automate manufacturing processes and machinery control",Engineering
+HMI,"Human-Machine Interface - A user interface that connects an operator to the controller for industrial equipment",Engineering
+BMS,"Building Management System - A computer-based control system that monitors and manages mechanical and electrical equipment in buildings",Engineering
+HVAC,"Heating, Ventilation, and Air Conditioning - Technology for indoor environmental comfort through thermal regulation and air quality",Engineering
+AHU,"Air Handling Unit - A device used to regulate and circulate air as part of an HVAC system",Engineering
+VAV,"Variable Air Volume - An HVAC system that varies the airflow at a constant temperature to meet zone requirements",Engineering
+FCU,"Fan Coil Unit - A simple device consisting of a heating/cooling coil and a fan used for temperature control",Engineering
+VFD,"Variable Frequency Drive - A motor controller that drives an electric motor by varying the frequency and voltage of its power supply",Engineering
+RTU,"Remote Terminal Unit - A microprocessor-controlled electronic device that interfaces sensors to SCADA systems",Engineering
+DCS,"Distributed Control System - A computerized control system for industrial processes with distributed control elements",Engineering
+P&ID,"Piping and Instrumentation Diagram - A detailed diagram showing process equipment, instrumentation, and piping",Engineering
+CAD,"Computer-Aided Design - Software used to create precision drawings or technical illustrations",Engineering
+BIM,"Building Information Modeling - A digital representation of physical and functional characteristics of a building",Engineering
+MEP,"Mechanical, Electrical, and Plumbing - Core building systems that ensure functionality and occupant comfort",Engineering
+EMS,"Energy Management System - A system of computer-aided tools to monitor, control, and optimize energy consumption",Engineering
+OAT,"Outside Air Temperature - The temperature of the outdoor ambient air measured for HVAC control purposes",Engineering
+SAT,"Supply Air Temperature - The temperature of air leaving an air handling unit or cooling/heating coil",Engineering
+RAT,"Return Air Temperature - The temperature of air returning to the air handling unit from conditioned spaces",Engineering
+MAT,"Mixed Air Temperature - The temperature of the mixture of return air and outside air in an HVAC system",Engineering
+DP,"Differential Pressure - The difference in pressure between two points, used for monitoring filters and airflow",Engineering
+CFM,"Cubic Feet per Minute - A measurement of airflow volume used in HVAC system design and operation",Engineering
+BTU,"British Thermal Unit - A unit of heat energy commonly used to measure heating and cooling capacity",Engineering
+kW,"Kilowatt - A unit of electrical power equal to 1000 watts, used to measure energy consumption",Engineering
+PPM,"Parts Per Million - A unit of measurement for concentration, commonly used for air quality and water quality monitoring",Engineering
+SLA,"Service Level Agreement - A contract defining the level of service expected from a service provider",General
+KPI,"Key Performance Indicator - A measurable value that demonstrates how effectively objectives are being achieved",General
+ROI,"Return on Investment - A performance measure used to evaluate the efficiency or profitability of an investment",General
+RFP,"Request for Proposal - A document soliciting proposals from potential vendors for a product or service",General
+RFQ,"Request for Quotation - A document requesting suppliers to submit price quotes for specific products or services",General
+SOW,"Statement of Work - A document defining project-specific activities, deliverables, and timelines",General
+POC,"Proof of Concept - A demonstration that verifies certain concepts or theories have practical potential",General
+MVP,"Minimum Viable Product - A product with enough features to attract early adopters and validate a product idea",General
+UAT,"User Acceptance Testing - Testing performed by end users to verify that a system meets requirements",General
+QA,"Quality Assurance - A systematic process to ensure products or services meet specified requirements",General
+SOP,"Standard Operating Procedure - A set of step-by-step instructions for routine operations",General
+ETA,"Estimated Time of Arrival - The expected time when a shipment, task, or project will be completed",General
+EOD,"End of Day - A deadline reference typically meaning the close of business hours",General
+FYI,"For Your Information - Used to share information without requiring action from the recipient",General
+TBD,"To Be Determined - Indicates that a decision or specification has not yet been finalized",General
+N/A,"Not Applicable - Indicates that something does not apply to a particular situation",General
+ASAP,"As Soon As Possible - Indicates urgency in completing a task or delivering information",General
+WIP,"Work in Progress - Tasks or projects that have been started but not yet completed",General
+FAT,"Factory Acceptance Test - Testing performed at the manufacturer's facility before shipping equipment",General
+SAT,"Site Acceptance Test - Testing performed at the installation site to verify system functionality",General
+O&M,"Operations and Maintenance - Ongoing activities required to keep systems and facilities running efficiently",General
+PM,"Preventive Maintenance - Regular maintenance performed to prevent equipment failure and extend lifespan",General
+MTBF,"Mean Time Between Failures - Average time between system failures, used to measure reliability",General
+MTTR,"Mean Time To Repair - Average time required to repair a failed system or component",General
+RCA,"Root Cause Analysis - A method of problem solving used to identify the underlying causes of faults or problems",General
+FMEA,"Failure Mode and Effects Analysis - A systematic approach for identifying potential failure modes and their effects",General
+ISO,"International Organization for Standardization - An international body that develops and publishes standards",General
+OSHA,"Occupational Safety and Health Administration - US agency ensuring safe and healthy working conditions",General
+PPE,"Personal Protective Equipment - Equipment worn to minimize exposure to workplace hazards",General
+LOTO,"Lockout/Tagout - Safety procedure to ensure dangerous machines are properly shut off during maintenance",General
