@@ -10,6 +10,7 @@ import {
   Loader2,
   FolderKanban,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -47,6 +48,9 @@ export function Projects() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUserToAdd, setSelectedUserToAdd] = useState("");
   const [selectedRole, setSelectedRole] = useState("member");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
   const [newProject, setNewProject] = useState({
     name: "",
@@ -160,14 +164,24 @@ export function Projects() {
     }
   };
 
-  const handleDeleteProject = async (projectId: string) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
+  const openDeleteModal = (project: Project) => {
+    setProjectToDelete(project);
+    setDeleteConfirmName("");
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+    if (deleteConfirmName !== projectToDelete.name) return;
 
     try {
-      await projectsApi.delete(projectId);
+      await projectsApi.delete(projectToDelete.id);
       await fetchProjects();
       setSelectedProject(null);
       setActiveTab("projects");
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
+      setDeleteConfirmName("");
     } catch (err) {
       console.error("Failed to delete project:", err);
     }
@@ -274,8 +288,8 @@ export function Projects() {
         <button
           onClick={() => setActiveTab("projects")}
           className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "projects"
-              ? "bg-gray-100 text-gray-900"
-              : "text-gray-600 hover:text-gray-900"
+            ? "bg-gray-100 text-gray-900"
+            : "text-gray-600 hover:text-gray-900"
             }`}
         >
           All Projects
@@ -283,8 +297,8 @@ export function Projects() {
         <button
           onClick={() => setActiveTab("create")}
           className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "create"
-              ? "bg-gray-100 text-gray-900"
-              : "text-gray-600 hover:text-gray-900"
+            ? "bg-gray-100 text-gray-900"
+            : "text-gray-600 hover:text-gray-900"
             }`}
         >
           Create Project
@@ -293,8 +307,8 @@ export function Projects() {
           <button
             onClick={() => setActiveTab("details")}
             className={`flex-1 py-2.5 px-4 rounded-md text-sm transition-colors ${activeTab === "details"
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-600 hover:text-gray-900"
+              ? "bg-gray-100 text-gray-900"
+              : "text-gray-600 hover:text-gray-900"
               }`}
           >
             Project Details
@@ -454,7 +468,7 @@ export function Projects() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDeleteProject(selectedProject.id)}
+                  onClick={() => openDeleteModal(selectedProject)}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                   <Trash2 className="w-4 h-4 mr-1" />
@@ -539,8 +553,8 @@ export function Projects() {
                         <div className="flex-1 min-w-0">
                           <p
                             className={`text-sm ${task.isCompleted
-                                ? "line-through text-gray-500"
-                                : "text-gray-900"
+                              ? "line-through text-gray-500"
+                              : "text-gray-900"
                               }`}
                           >
                             {task.title}
@@ -548,10 +562,10 @@ export function Projects() {
                           <div className="flex items-center gap-2 mt-1">
                             <Badge
                               className={`text-xs ${task.urgency === "urgent"
-                                  ? "bg-red-100 text-red-700"
-                                  : task.urgency === "high"
-                                    ? "bg-orange-100 text-orange-700"
-                                    : "bg-gray-100 text-gray-700"
+                                ? "bg-red-100 text-red-700"
+                                : task.urgency === "high"
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-gray-100 text-gray-700"
                                 }`}
                             >
                               {task.urgency}
@@ -719,6 +733,73 @@ export function Projects() {
                   onClick={handleUpdateProject}
                 >
                   Save Changes
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Project Confirmation Modal */}
+      {showDeleteModal && projectToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 w-full max-w-md mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">Delete Project</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-red-800 font-medium mb-2">
+                ⚠️ Warning: Deleting this project will permanently remove:
+              </p>
+              <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                <li>All team members from this project</li>
+                <li>All tasks assigned to this project</li>
+                <li>All meetings scheduled under this project</li>
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="delete-confirm" className="text-sm text-gray-700">
+                  To confirm deletion, type the project name exactly:
+                </Label>
+                <p className="text-sm font-mono bg-gray-100 px-2 py-1 rounded mt-1 mb-2">
+                  {projectToDelete.name}
+                </p>
+                <Input
+                  id="delete-confirm"
+                  placeholder="Type project name to confirm"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setProjectToDelete(null);
+                    setDeleteConfirmName("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleDeleteProject}
+                  disabled={deleteConfirmName !== projectToDelete.name}
+                >
+                  Delete Project
                 </Button>
               </div>
             </div>

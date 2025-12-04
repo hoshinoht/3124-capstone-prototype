@@ -406,8 +406,8 @@ async fn delete_project(
         .execute(pool.get_ref())
         .await;
 
-    // Unlink tasks from project (don't delete tasks, just remove project association)
-    let _ = sqlx::query("UPDATE tasks SET project_id = NULL WHERE project_id = ?")
+    // Delete all tasks and meetings associated with this project
+    let _ = sqlx::query("DELETE FROM tasks WHERE project_id = ?")
         .bind(&project_id)
         .execute(pool.get_ref())
         .await;
