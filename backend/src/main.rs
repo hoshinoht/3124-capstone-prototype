@@ -1,248 +1,121 @@
-mod auth;
-mod handlers;
-mod models;
+mod middleware {
+    pub mod auth;
+    pub mod logging;
+}
+mod error;
+mod models {
+    pub mod equipment;
+    pub mod events;
+    pub mod glossary;
+    pub mod locations;
+    pub mod notifications;
+    pub mod quick_links;
+    pub mod sessions;
+    pub mod tasks;
+    pub mod users;
+}
+
+mod routes {
+    pub mod auth;
+    pub mod equipment;
+    pub mod events;
+    pub mod glossary;
+    pub mod locations;
+    pub mod notifications;
+    pub mod quick_links;
+    pub mod search;
+    pub mod tasks;
+    pub mod users;
+}
 
 use actix_cors::Cors;
-use actix_web::{middleware, web, App, HttpServer};
-use actix_web_httpauth::middleware::HttpAuthentication;
-use sqlx::sqlite::SqlitePoolOptions;
-use std::env;
+use actix_web::{App, HttpServer, web};
+use log::info;
+use middleware::{auth::Auth, logging::Logger};
+use routes::{
+    auth, dashboard, equipment, events, glossary, locations, notifications, quick_links, search, tasks, users,
+};
+
+use sqlx::SqlitePool;
+use tokio::time::{Duration, interval};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Load environment variables
-    dotenv::dotenv().ok();
     env_logger::init();
+    info!("Starting the IT-Engineering Collaboration Dashboard server...");
 
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = env::var("PORT")
-        .unwrap_or_else(|_| "8080".to_string())
-        .parse::<u16>()
-        .expect("PORT must be a valid number");
-
-    // Create database pool
-    let pool = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
+    let db_pool = SqlitePool::connect("sqlite://database.db")
         .await
-        .expect("Failed to create pool");
+        .expect("Failed to connect to SQLite database");
+    let db_pool = web::Data::new(db_pool);
 
-    log::info!("Starting server at http://{}:{}", host, port);
+    // Perform initial cleanup of expired sessions
+    info!("Performing initial cleanup of expired sessions...");
+    match middleware::auth::cleanup_expired_sessions(db_pool.get_ref()).await {
+        Ok(cleaned_count) => {
+            if cleaned_count > 0 {
+                info!("Cleaned up {} expired sessions on startup", cleaned_count);
+            } else {
+                info!("No expired sessions found on startup");
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to cleanup expired sessions on startup: {}", e);
+        }
+    }
+
+    // Start background task for periodic session cleanup
+    let db_pool_for_cleanup = db_pool.clone();
+    tokio::spawn(async move {
+        let mut interval = interval(Duration::from_secs(3600)); // Run every hour
+        loop {
+            interval.tick().await;
+            match middleware::auth::cleanup_expired_sessions(db_pool_for_cleanup.get_ref()).await {
+                Ok(cleaned_count) => {
+                    if cleaned_count > 0 {
+                        info!(
+                            "Periodic cleanup: removed {} expired sessions",
+                            cleaned_count
+                        );
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Periodic session cleanup failed: {}", e);
+                }
+            }
+        }
+    });
+
+    info!("Session cleanup background task started (runs every hour)");
 
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allowed_origin(
-                &env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:3000".to_string()),
-            )
-            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-            .allowed_headers(vec![
-                actix_web::http::header::AUTHORIZATION,
-                actix_web::http::header::ACCEPT,
-                actix_web::http::header::CONTENT_TYPE,
-            ])
-            .max_age(3600);
-
-        let bearer_middleware = HttpAuthentication::bearer(auth::validator);
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .supports_credentials();
 
         App::new()
-            .app_data(web::Data::new(pool.clone()))
-            .wrap(middleware::Logger::default())
+            .app_data(db_pool.clone())
             .wrap(cors)
-            // Public routes (no authentication required)
-            .service(
-                web::scope("/api/auth")
-                    .route("/register", web::post().to(handlers::auth_handler::register))
-                    .route("/login", web::post().to(handlers::auth_handler::login)),
-            )
-            // Protected routes (authentication required)
+            .wrap(Logger)
+            .wrap(Auth)
             .service(
                 web::scope("/api")
-                    .wrap(bearer_middleware)
-                    // User routes
-                    .service(
-                        web::scope("/users")
-                            .route(
-                                "/me",
-                                web::get().to(handlers::auth_handler::get_current_user),
-                            )
-                            .route("", web::get().to(handlers::auth_handler::get_all_users))
-                            .route(
-                                "/department/{department}",
-                                web::get().to(handlers::auth_handler::get_users_by_department),
-                            ),
-                    )
-                    // Calendar routes
-                    .service(
-                        web::scope("/calendar")
-                            .route("", web::post().to(handlers::calendar_handler::create_event))
-                            .route("", web::get().to(handlers::calendar_handler::get_events))
-                            .route(
-                                "/{event_id}",
-                                web::get().to(handlers::calendar_handler::get_event_by_id),
-                            )
-                            .route(
-                                "/{event_id}",
-                                web::put().to(handlers::calendar_handler::update_event),
-                            )
-                            .route(
-                                "/{event_id}",
-                                web::delete().to(handlers::calendar_handler::delete_event),
-                            ),
-                    )
-                    // Equipment routes
-                    .service(
-                        web::scope("/equipment")
-                            .route(
-                                "",
-                                web::post().to(handlers::equipment_handler::create_equipment),
-                            )
-                            .route(
-                                "",
-                                web::get().to(handlers::equipment_handler::get_all_equipment),
-                            )
-                            .route(
-                                "/available",
-                                web::get().to(handlers::equipment_handler::get_available_equipment),
-                            ),
-                    )
-                    // Equipment booking routes
-                    .service(
-                        web::scope("/bookings")
-                            .route(
-                                "",
-                                web::post().to(handlers::equipment_handler::create_booking),
-                            )
-                            .route(
-                                "",
-                                web::get().to(handlers::equipment_handler::get_all_bookings),
-                            )
-                            .route(
-                                "/my",
-                                web::get().to(handlers::equipment_handler::get_user_bookings),
-                            )
-                            .route(
-                                "/{booking_id}/status",
-                                web::put().to(handlers::equipment_handler::update_booking_status),
-                            )
-                            .route(
-                                "/{booking_id}",
-                                web::delete().to(handlers::equipment_handler::delete_booking),
-                            ),
-                    )
-                    // Task routes
-                    .service(
-                        web::scope("/tasks")
-                            .route("", web::post().to(handlers::task_handler::create_task))
-                            .route("", web::get().to(handlers::task_handler::get_all_tasks))
-                            .route(
-                                "/urgent",
-                                web::get().to(handlers::task_handler::get_urgent_tasks),
-                            )
-                            .route("/my", web::get().to(handlers::task_handler::get_user_tasks))
-                            .route(
-                                "/{task_id}",
-                                web::get().to(handlers::task_handler::get_task_by_id),
-                            )
-                            .route(
-                                "/{task_id}",
-                                web::put().to(handlers::task_handler::update_task),
-                            )
-                            .route(
-                                "/{task_id}",
-                                web::delete().to(handlers::task_handler::delete_task),
-                            ),
-                    )
-                    // Personnel status routes
-                    .service(
-                        web::scope("/personnel")
-                            .route(
-                                "/status",
-                                web::post().to(handlers::personnel_handler::update_status),
-                            )
-                            .route(
-                                "/status",
-                                web::get().to(handlers::personnel_handler::get_all_statuses),
-                            )
-                            .route(
-                                "/status/me",
-                                web::get().to(handlers::personnel_handler::get_user_status),
-                            )
-                            .route(
-                                "/status/history/{user_id}",
-                                web::get().to(handlers::personnel_handler::get_status_history),
-                            )
-                            .route(
-                                "/status/department/{department}",
-                                web::get()
-                                    .to(handlers::personnel_handler::get_statuses_by_department),
-                            ),
-                    )
-                    // Quick links routes
-                    .service(
-                        web::scope("/quick-links")
-                            .route(
-                                "",
-                                web::post().to(handlers::quick_link_handler::create_quick_link),
-                            )
-                            .route(
-                                "",
-                                web::get().to(handlers::quick_link_handler::get_all_quick_links),
-                            )
-                            .route(
-                                "/pinned",
-                                web::get().to(handlers::quick_link_handler::get_pinned_quick_links),
-                            )
-                            .route(
-                                "/{link_id}",
-                                web::get().to(handlers::quick_link_handler::get_quick_link_by_id),
-                            )
-                            .route(
-                                "/{link_id}",
-                                web::put().to(handlers::quick_link_handler::update_quick_link),
-                            )
-                            .route(
-                                "/{link_id}",
-                                web::delete().to(handlers::quick_link_handler::delete_quick_link),
-                            ),
-                    )
-                    // Glossary routes
-                    .service(
-                        web::scope("/glossary")
-                            .route(
-                                "/categories",
-                                web::get().to(handlers::glossary_handler::get_all_categories),
-                            )
-                            .route(
-                                "/terms",
-                                web::post().to(handlers::glossary_handler::create_term),
-                            )
-                            .route(
-                                "/terms",
-                                web::get().to(handlers::glossary_handler::get_all_terms),
-                            )
-                            .route(
-                                "/terms/search",
-                                web::post().to(handlers::glossary_handler::search_terms),
-                            )
-                            .route(
-                                "/terms/{term_id}",
-                                web::get().to(handlers::glossary_handler::get_term_by_id),
-                            )
-                            .route(
-                                "/terms/{term_id}",
-                                web::put().to(handlers::glossary_handler::update_term),
-                            )
-                            .route(
-                                "/terms/{term_id}",
-                                web::delete().to(handlers::glossary_handler::delete_term),
-                            ),
-                    ),
+                    .configure(auth::configure_routes)
+                    .configure(dashboard::configure_routes)
+                    .configure(users::configure_routes)
+                    .configure(events::configure_routes)
+                    .configure(tasks::configure_routes)
+                    .configure(equipment::configure_routes)
+                    .configure(locations::configure_routes)
+                    .configure(quick_links::configure_routes)
+                    .configure(glossary::configure_routes)
+                    .configure(notifications::configure_routes)
+                    .configure(search::configure_routes),
             )
-            // Health check endpoint
-            .route("/health", web::get().to(|| async { "OK" }))
     })
-    .bind((host, port))?
+    .bind(("127.0.0.1", 8080))?
     .run()
     .await
 }

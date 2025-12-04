@@ -1,0 +1,11 @@
+pub mod auth;
+pub mod dashboard;
+pub mod equipment;
+pub mod events;
+pub mod glossary;
+pub mod locations;
+pub mod notifications;
+pub mod quick_links;
+pub mod search;
+pub mod tasks;
+pub mod users;
