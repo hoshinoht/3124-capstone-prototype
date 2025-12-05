@@ -1,11 +1,20 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, Search, CheckCircle, Loader2, Download, Smartphone, Monitor, Users, Clock, TrendingUp } from "lucide-react";
+import { MapPin, Search, CheckCircle, Loader2, Download, Smartphone, Monitor, Users, Clock, TrendingUp, ChevronLeft, ChevronRight, Filter, Calendar, History } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { locationsApi } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+
+interface HistoryRecord {
+  id: number;
+  location: string;
+  checkInTime: string;
+  checkOutTime?: string;
+  status: string;
+  hoursWorked: string;
+}
 
 interface CheckInRecord {
   name: string;
@@ -42,6 +51,16 @@ export function LocationTracker() {
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [clockInOutRecords, setClockInOutRecords] = useState<ClockInOutRecord[]>([]);
 
+  // Check-in history state
+  const [myCheckInHistory, setMyCheckInHistory] = useState<HistoryRecord[]>([]);
+  const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+  const [historyFilterLocation, setHistoryFilterLocation] = useState("");
+  const [historyFilterStatus, setHistoryFilterStatus] = useState("");
+  const [historyFilterDateFrom, setHistoryFilterDateFrom] = useState("");
+  const [historyFilterDateTo, setHistoryFilterDateTo] = useState("");
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const HISTORY_ITEMS_PER_PAGE = 5;
+
   // Fetch location data from API
   useEffect(() => {
     const fetchData = async () => {
@@ -59,6 +78,16 @@ export function LocationTracker() {
               setCurrentLocation(latestRecord.location);
               setCheckInTime(latestRecord.checkInTime);
             }
+
+            // Set up my check-in history
+            setMyCheckInHistory(statusResponse.data.history.map((h: any, index: number) => ({
+              id: h.id || index,
+              location: h.location || "Unknown",
+              checkInTime: h.checkInTime || "",
+              checkOutTime: h.checkOutTime || undefined,
+              status: h.status || (h.checkOutTime ? "completed" : "active"),
+              hoursWorked: calculateHours(h.checkInTime, h.checkOutTime),
+            })));
           }
         } catch (err) {
           console.error("Failed to fetch user status:", err);
@@ -257,6 +286,86 @@ export function LocationTracker() {
 
   const filteredRecords = getFilteredByStatRecords();
 
+  // Filter and paginate check-in history
+  const getFilteredHistory = () => {
+    let records = myCheckInHistory;
+
+    // Apply location filter
+    if (historyFilterLocation) {
+      records = records.filter(r =>
+        r.location.toLowerCase().includes(historyFilterLocation.toLowerCase())
+      );
+    }
+
+    // Apply status filter
+    if (historyFilterStatus) {
+      records = records.filter(r => r.status === historyFilterStatus);
+    }
+
+    // Apply date range filter
+    if (historyFilterDateFrom) {
+      const fromDate = new Date(historyFilterDateFrom);
+      records = records.filter(r => new Date(r.checkInTime) >= fromDate);
+    }
+    if (historyFilterDateTo) {
+      const toDate = new Date(historyFilterDateTo);
+      toDate.setHours(23, 59, 59, 999);
+      records = records.filter(r => new Date(r.checkInTime) <= toDate);
+    }
+
+    // Apply search query
+    if (historySearchQuery) {
+      records = records.filter(r =>
+        r.location.toLowerCase().includes(historySearchQuery.toLowerCase())
+      );
+    }
+
+    return records;
+  };
+
+  const filteredHistory = getFilteredHistory();
+  const historyTotalPages = Math.ceil(filteredHistory.length / HISTORY_ITEMS_PER_PAGE);
+  const paginatedHistory = filteredHistory.slice(
+    (historyCurrentPage - 1) * HISTORY_ITEMS_PER_PAGE,
+    historyCurrentPage * HISTORY_ITEMS_PER_PAGE
+  );
+
+  // Get unique locations from history for filter dropdown
+  const historyLocations = [...new Set(myCheckInHistory.map(r => r.location))];
+
+  const handleHistoryPageChange = (page: number) => {
+    setHistoryCurrentPage(page);
+  };
+
+  const resetHistoryFilters = () => {
+    setHistoryFilterLocation("");
+    setHistoryFilterStatus("");
+    setHistoryFilterDateFrom("");
+    setHistoryFilterDateTo("");
+    setHistorySearchQuery("");
+    setHistoryCurrentPage(1);
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setHistoryCurrentPage(1);
+  }, [historyFilterLocation, historyFilterStatus, historyFilterDateFrom, historyFilterDateTo, historySearchQuery]);
+
+  const formatDate = (dateStr: string): string => {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   const handleStatClick = (stat: string) => {
     if (selectedStat === stat) {
       setSelectedStat(null); // Toggle off if already selected
@@ -327,13 +436,17 @@ export function LocationTracker() {
             <CardTitle>Location Check In/Out</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Map Placeholder */}
-            <div className="relative mb-4 h-64 bg-gray-100 rounded-lg border-2 border-gray-300 flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="w-12 h-12 text-blue-600 mx-auto mb-2" />
-                <p className="text-gray-600">Map Placeholder</p>
-                <p className="text-sm text-gray-500">No actual GPS tracking</p>
-              </div>
+            {/* Map */}
+            <div className="relative mb-4 rounded-lg overflow-hidden">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3988.6040159112813!2d103.90967081118802!3d1.4136303985670917!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31da1515bfb2d263%3A0xc71c56458ac08497!2sSingapore%20Institute%20of%20Technology%20(Campus%20Court)!5e0!3m2!1sen!2ssg!4v1764933009482!5m2!1sen!2ssg"
+                width="100%"
+                height="256"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
             </div>
 
             {/* Check In/Out Buttons */}
@@ -423,6 +536,182 @@ export function LocationTracker() {
           </CardContent>
         </Card>
       </div>
+
+      {/* My Check-In History Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-blue-600" />
+              <CardTitle>My Check-In History</CardTitle>
+            </div>
+            <Badge variant="outline">{filteredHistory.length} Records</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="mb-4 space-y-3">
+            <div className="flex flex-wrap gap-3">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search by location..."
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              {/* Location Filter */}
+              <select
+                value={historyFilterLocation}
+                onChange={(e) => setHistoryFilterLocation(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm min-w-[150px]"
+              >
+                <option value="">All Locations</option>
+                {historyLocations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={historyFilterStatus}
+                onChange={(e) => setHistoryFilterStatus(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm min-w-[120px]"
+              >
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Date Range */}
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <Input
+                  type="date"
+                  value={historyFilterDateFrom}
+                  onChange={(e) => setHistoryFilterDateFrom(e.target.value)}
+                  className="w-[140px]"
+                  placeholder="From"
+                />
+                <span className="text-gray-400">to</span>
+                <Input
+                  type="date"
+                  value={historyFilterDateTo}
+                  onChange={(e) => setHistoryFilterDateTo(e.target.value)}
+                  className="w-[140px]"
+                  placeholder="To"
+                />
+              </div>
+
+              {/* Reset Filters */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetHistoryFilters}
+                className="ml-auto"
+              >
+                <Filter className="w-4 h-4 mr-1" />
+                Reset Filters
+              </Button>
+            </div>
+          </div>
+
+          {/* History Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Date</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Location</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Check In</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Check Out</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Hours</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedHistory.length > 0 ? (
+                  paginatedHistory.map((record) => (
+                    <tr key={record.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-2 text-gray-900">{formatDate(record.checkInTime)}</td>
+                      <td className="py-3 px-2">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-blue-600" />
+                          <span className="text-gray-900">{record.location}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-2 text-gray-600">{formatTime(record.checkInTime)}</td>
+                      <td className="py-3 px-2 text-gray-600">{record.checkOutTime ? formatTime(record.checkOutTime) : "-"}</td>
+                      <td className="py-3 px-2 text-gray-600">{record.hoursWorked}</td>
+                      <td className="py-3 px-2">
+                        <Badge
+                          variant={record.status === 'active' ? 'default' : 'secondary'}
+                          className={record.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}
+                        >
+                          {record.status === 'active' ? 'Active' : 'Completed'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-gray-500">
+                      No check-in history found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {historyTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                Showing {((historyCurrentPage - 1) * HISTORY_ITEMS_PER_PAGE) + 1} to {Math.min(historyCurrentPage * HISTORY_ITEMS_PER_PAGE, filteredHistory.length)} of {filteredHistory.length} entries
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleHistoryPageChange(historyCurrentPage - 1)}
+                  disabled={historyCurrentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: historyTotalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={historyCurrentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleHistoryPageChange(page)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleHistoryPageChange(historyCurrentPage + 1)}
+                  disabled={historyCurrentPage === historyTotalPages}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

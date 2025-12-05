@@ -634,6 +634,145 @@ VALUES
     ('a1b2c3d4-1210-4001-8001-000000000002', 'VFD maintenance', 'Preventive maintenance on VFDs', 'high', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-10', '2025-12-09 10:00:00'),
     ('a1b2c3d4-1210-4001-8001-000000000003', 'Active Directory cleanup', 'Remove inactive user accounts', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000', '2025-12-10', '2025-12-09 11:00:00');
 
+-- December 11
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1211-4001-8001-000000000001', 'BACnet integration testing', 'Test BACnet communication with new controllers', 'high', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '2025-12-11', '2025-12-10 09:00:00'),
+    ('a1b2c3d4-1211-4001-8001-000000000002', 'Antivirus definition update', 'Push latest antivirus definitions to all endpoints', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-11', '2025-12-10 10:00:00'),
+    ('a1b2c3d4-1211-4001-8001-000000000003', 'Chiller water treatment', 'Monthly water treatment for chiller system', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-11', '2025-12-10 11:00:00');
+
+-- December 12
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1212-4001-8001-000000000001', 'SD-WAN configuration review', 'Review SD-WAN policies and optimize routing', 'high', 'pending', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-12', '2025-12-11 09:00:00'),
+    ('a1b2c3d4-1212-4001-8001-000000000002', 'Cooling tower inspection', 'Quarterly cooling tower inspection and cleaning', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-12', '2025-12-11 10:00:00'),
+    ('a1b2c3d4-1212-4001-8001-000000000003', 'Print server migration', 'Migrate print services to new server', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000', '2025-12-12', '2025-12-11 11:00:00'),
+    ('a1b2c3d4-1212-4001-8001-000000000004', 'Emergency lighting test', 'Monthly emergency lighting system test', 'low', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-12', '2025-12-11 12:00:00');
+
+-- December 13 (Saturday - lighter workload)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1213-4001-8001-000000000001', 'Weekend system monitoring', 'Monitor critical systems over weekend', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440007', '2025-12-13', '2025-12-12 08:00:00'),
+    ('a1b2c3d4-1213-4001-8001-000000000002', 'BMS trending review', 'Review BMS data trends for the week', 'low', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '2025-12-13', '2025-12-12 09:00:00');
+
+-- December 14 (Sunday - minimal workload)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1214-4001-8001-000000000001', 'On-call coverage', 'Sunday on-call monitoring shift', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-14', '2025-12-13 08:00:00');
+
+-- December 15
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1215-4001-8001-000000000001', 'Weekly status meeting prep', 'Prepare status reports for weekly review', 'medium', 'pending', 0, 'Both', NULL, '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', '2025-12-15', '2025-12-14 09:00:00'),
+    ('a1b2c3d4-1215-4001-8001-000000000002', 'IoT sensor deployment', 'Deploy new IoT sensors in Building C', 'high', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-15', '2025-12-14 10:00:00'),
+    ('a1b2c3d4-1215-4001-8001-000000000003', 'DNS server update', 'Update DNS records for new services', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-15', '2025-12-14 11:00:00'),
+    ('a1b2c3d4-1215-4001-8001-000000000004', 'Air quality monitoring setup', 'Configure new air quality monitors', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-15', '2025-12-14 12:00:00');
+
+-- December 16
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1216-4001-8001-000000000001', 'Network switch firmware update', 'Update firmware on core switches', 'high', 'pending', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-16', '2025-12-15 09:00:00'),
+    ('a1b2c3d4-1216-4001-8001-000000000002', 'Damper actuator replacement', 'Replace faulty damper actuators in AHU-2', 'urgent', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-16', '2025-12-15 10:00:00'),
+    ('a1b2c3d4-1216-4001-8001-000000000003', 'Security camera audit', 'Audit security camera coverage and functionality', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000', '2025-12-16', '2025-12-15 11:00:00');
+
+-- December 17
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1217-4001-8001-000000000001', 'Firewall log analysis', 'Analyze firewall logs for security threats', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-17', '2025-12-16 09:00:00'),
+    ('a1b2c3d4-1217-4001-8001-000000000002', 'Economizer calibration', 'Calibrate economizer controls for winter', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-17', '2025-12-16 10:00:00'),
+    ('a1b2c3d4-1217-4001-8001-000000000003', 'UPS battery check', 'Check UPS battery health across all sites', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-17', '2025-12-16 11:00:00'),
+    ('a1b2c3d4-1217-4001-8001-000000000004', 'Steam trap inspection', 'Inspect steam traps in heating system', 'medium', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-17', '2025-12-16 12:00:00');
+
+-- December 18
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1218-4001-8001-000000000001', 'Year-end IT asset inventory', 'Complete year-end IT asset inventory', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000', '2025-12-18', '2025-12-17 09:00:00'),
+    ('a1b2c3d4-1218-4001-8001-000000000002', 'Fire suppression system test', 'Annual fire suppression system testing', 'urgent', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-18', '2025-12-17 10:00:00'),
+    ('a1b2c3d4-1218-4001-8001-000000000003', 'Backup tape rotation', 'Rotate backup tapes for offsite storage', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-18', '2025-12-17 11:00:00');
+
+-- December 19
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1219-4001-8001-000000000001', 'Year-end project review', 'Review all project progress for year-end reporting', 'high', 'pending', 0, 'Both', NULL, '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', '2025-12-19', '2025-12-18 09:00:00'),
+    ('a1b2c3d4-1219-4001-8001-000000000002', 'BMS graphics update', 'Update BMS graphics for new equipment', 'low', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-19', '2025-12-18 10:00:00'),
+    ('a1b2c3d4-1219-4001-8001-000000000003', 'WiFi access point audit', 'Audit WiFi coverage and performance', 'medium', 'pending', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-19', '2025-12-18 11:00:00'),
+    ('a1b2c3d4-1219-4001-8001-000000000004', 'Pump alignment check', 'Check pump alignment on cooling system', 'medium', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-19', '2025-12-18 12:00:00');
+
+-- December 20 (Saturday - lighter workload)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1220-4001-8001-000000000001', 'Weekend monitoring setup', 'Configure holiday weekend monitoring', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440007', '2025-12-20', '2025-12-19 08:00:00'),
+    ('a1b2c3d4-1220-4001-8001-000000000002', 'HVAC holiday schedule', 'Set HVAC schedules for holiday period', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '2025-12-20', '2025-12-19 09:00:00');
+
+-- December 21 (Sunday - minimal workload)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1221-4001-8001-000000000001', 'Sunday system check', 'Verify all systems before holiday week', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-21', '2025-12-20 08:00:00');
+
+-- December 22 (Pre-holiday week)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1222-4001-8001-000000000001', 'Pre-holiday backup verification', 'Ensure all backups complete before holidays', 'urgent', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-22', '2025-12-21 09:00:00'),
+    ('a1b2c3d4-1222-4001-8001-000000000002', 'Holiday schedule notification', 'Send holiday schedule to all building occupants', 'medium', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', '2025-12-22', '2025-12-21 10:00:00'),
+    ('a1b2c3d4-1222-4001-8001-000000000003', 'Network holiday mode config', 'Configure network for reduced holiday traffic', 'medium', 'pending', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-22', '2025-12-21 11:00:00');
+
+-- December 23
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1223-4001-8001-000000000001', 'Emergency contact list update', 'Update holiday emergency contact list', 'high', 'pending', 0, 'Both', NULL, '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', '2025-12-23', '2025-12-22 09:00:00'),
+    ('a1b2c3d4-1223-4001-8001-000000000002', 'Building security walkthrough', 'Final security check before holiday closure', 'high', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-23', '2025-12-22 10:00:00'),
+    ('a1b2c3d4-1223-4001-8001-000000000003', 'Server room temp check', 'Verify server room cooling before holidays', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-23', '2025-12-22 11:00:00');
+
+-- December 24 (Christmas Eve - minimal operations)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1224-4001-8001-000000000001', 'Christmas Eve monitoring', 'Skeleton crew system monitoring', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440007', '2025-12-24', '2025-12-23 08:00:00'),
+    ('a1b2c3d4-1224-4001-8001-000000000002', 'Building setback verification', 'Verify HVAC setback for holiday', 'low', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '2025-12-24', '2025-12-23 09:00:00');
+
+-- December 25 (Christmas Day - PUBLIC HOLIDAY - emergency only)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1225-4001-8001-000000000001', 'Holiday on-call duty', 'Christmas Day emergency on-call coverage', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440000', '2025-12-25', '2025-12-24 08:00:00');
+
+-- December 26 (Boxing Day - reduced operations)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1226-4001-8001-000000000001', 'Post-holiday system check', 'Verify all systems after Christmas', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-26', '2025-12-25 08:00:00'),
+    ('a1b2c3d4-1226-4001-8001-000000000002', 'Building reopening prep', 'Prepare building systems for return to normal', 'medium', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '2025-12-26', '2025-12-25 09:00:00');
+
+-- December 27 (Saturday - weekend)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1227-4001-8001-000000000001', 'Weekend system monitoring', 'Post-holiday weekend monitoring', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-27', '2025-12-26 08:00:00');
+
+-- December 28 (Sunday - weekend)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1228-4001-8001-000000000001', 'Sunday monitoring shift', 'Weekend on-call monitoring', 'low', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-28', '2025-12-27 08:00:00');
+
+-- December 29 (Return to normal operations)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1229-4001-8001-000000000001', 'Year-end system audit', 'Complete year-end system audit', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-29', '2025-12-28 09:00:00'),
+    ('a1b2c3d4-1229-4001-8001-000000000002', 'Energy consumption report', 'Generate December energy consumption report', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-29', '2025-12-28 10:00:00'),
+    ('a1b2c3d4-1229-4001-8001-000000000003', 'Network traffic analysis', 'Analyze December network traffic patterns', 'medium', 'pending', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-29', '2025-12-28 11:00:00'),
+    ('a1b2c3d4-1229-4001-8001-000000000004', 'HVAC performance review', 'Review HVAC performance for December', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-29', '2025-12-28 12:00:00');
+
+-- December 30
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1230-4001-8001-000000000001', 'Year-end documentation', 'Complete year-end IT documentation', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000', '2025-12-30', '2025-12-29 09:00:00'),
+    ('a1b2c3d4-1230-4001-8001-000000000002', 'Equipment inventory finalization', 'Finalize year-end equipment inventory', 'high', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '2025-12-30', '2025-12-29 10:00:00'),
+    ('a1b2c3d4-1230-4001-8001-000000000003', 'Backup verification - year end', 'Verify all year-end backups complete', 'urgent', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-30', '2025-12-29 11:00:00'),
+    ('a1b2c3d4-1230-4001-8001-000000000004', 'Maintenance schedule 2026', 'Draft maintenance schedule for 2026', 'medium', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-30', '2025-12-29 12:00:00');
+
+-- December 31 (New Year's Eve - minimal operations)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1231-4001-8001-000000000001', 'NYE system monitoring', 'New Year Eve monitoring shift', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440007', '2025-12-31', '2025-12-30 08:00:00'),
+    ('a1b2c3d4-1231-4001-8001-000000000002', 'Year-end building check', 'Final building check for the year', 'medium', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '2025-12-31', '2025-12-30 09:00:00'),
+    ('a1b2c3d4-1231-4001-8001-000000000003', 'Log archive - December', 'Archive December system logs', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-31', '2025-12-30 10:00:00');
+
 -- Insert sample events
 INSERT OR IGNORE INTO events (id, title, description, event_type, event_date, start_time, end_time, location, created_by, department)
 VALUES 
@@ -661,6 +800,81 @@ VALUES
 -- Using date('now') to ensure records appear as "today" for the demo
 -- Normal 9-6 work hours with reasonable check-in/out times
 -- Locations are realistic Singapore business locations
+
+-- Historical check-in records (past 2 weeks of data)
+-- Week of November 25-29, 2025
+INSERT OR IGNORE INTO check_in_records (id, user_id, location, check_in_time, check_out_time, notes, device_type)
+VALUES 
+    -- November 25 (Monday)
+    ('h1a2b3c4-1125-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'Changi Business Park', '2025-11-25 08:55:00', '2025-11-25 18:10:00', 'BMS installation support', 'mobile'),
+    ('h1a2b3c4-1125-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', '2025-11-25 09:00:00', '2025-11-25 17:45:00', 'Engineering team meeting', 'desktop'),
+    ('h1a2b3c4-1125-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Tuas', '2025-11-25 08:30:00', '2025-11-25 17:30:00', 'Equipment maintenance', 'mobile'),
+    ('h1a2b3c4-1125-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440004', 'Raffles Place', '2025-11-25 09:15:00', '2025-11-25 18:20:00', 'Client meeting', 'desktop'),
+    ('h1a2b3c4-1125-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440005', 'Jurong Industrial Estate', '2025-11-25 08:45:00', '2025-11-25 17:55:00', 'Network infrastructure work', 'mobile'),
+    
+    -- November 26 (Tuesday)
+    ('h1a2b3c4-1126-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'One-North', '2025-11-26 09:05:00', '2025-11-26 18:00:00', 'Science Park project', 'mobile'),
+    ('h1a2b3c4-1126-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', '2025-11-26 08:50:00', '2025-11-26 17:50:00', 'Regular office work', 'desktop'),
+    ('h1a2b3c4-1126-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Jurong Industrial Estate', '2025-11-26 08:40:00', '2025-11-26 18:15:00', 'Production line maintenance', 'mobile'),
+    ('h1a2b3c4-1126-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440005', 'Suntec City', '2025-11-26 09:00:00', '2025-11-26 17:30:00', 'Network deployment', 'desktop'),
+    ('h1a2b3c4-1126-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440006', 'Mapletree Business City', '2025-11-26 08:55:00', '2025-11-26 18:05:00', 'HVAC inspection', 'mobile'),
+    
+    -- November 27 (Wednesday)
+    ('h1a2b3c4-1127-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'Changi Business Park', '2025-11-27 09:10:00', '2025-11-27 18:20:00', 'Continued BMS work', 'mobile'),
+    ('h1a2b3c4-1127-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Paya Lebar Quarter', '2025-11-27 09:00:00', '2025-11-27 17:45:00', 'Client site visit', 'mobile'),
+    ('h1a2b3c4-1127-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Tuas', '2025-11-27 08:35:00', '2025-11-27 17:40:00', 'Equipment calibration', 'mobile'),
+    ('h1a2b3c4-1127-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440004', 'Marina Bay Financial Centre', '2025-11-27 09:05:00', '2025-11-27 18:00:00', 'IT infrastructure review', 'desktop'),
+    ('h1a2b3c4-1127-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440005', 'Woodlands Regional Centre', '2025-11-27 08:30:00', '2025-11-27 17:30:00', 'Network switch installation', 'mobile'),
+    ('h1a2b3c4-1127-4001-8001-000000000006', '550e8400-e29b-41d4-a716-446655440006', 'One-North', '2025-11-27 09:00:00', '2025-11-27 17:55:00', 'Engineering consultation', 'desktop'),
+    
+    -- November 28 (Thursday)
+    ('h1a2b3c4-1128-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'Seletar Aerospace Park', '2025-11-28 08:45:00', '2025-11-28 18:00:00', 'Aerospace facility support', 'mobile'),
+    ('h1a2b3c4-1128-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', '2025-11-28 09:00:00', '2025-11-28 17:50:00', 'Project planning', 'desktop'),
+    ('h1a2b3c4-1128-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440004', 'Shenton Way', '2025-11-28 09:15:00', '2025-11-28 18:10:00', 'Server maintenance', 'desktop'),
+    ('h1a2b3c4-1128-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440005', 'Tai Seng', '2025-11-28 08:50:00', '2025-11-28 17:45:00', 'Network troubleshooting', 'mobile'),
+    
+    -- November 29 (Friday)
+    ('h1a2b3c4-1129-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'International Business Park', '2025-11-29 09:00:00', '2025-11-29 17:30:00', 'End of week site visit', 'mobile'),
+    ('h1a2b3c4-1129-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', '2025-11-29 09:05:00', '2025-11-29 17:00:00', 'Weekly wrap-up', 'desktop'),
+    ('h1a2b3c4-1129-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Jurong Industrial Estate', '2025-11-29 08:40:00', '2025-11-29 17:15:00', 'Preventive maintenance', 'mobile'),
+    ('h1a2b3c4-1129-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440004', 'Raffles Place', '2025-11-29 09:10:00', '2025-11-29 17:20:00', 'Client handover', 'desktop'),
+    ('h1a2b3c4-1129-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440005', 'Ubi', '2025-11-29 08:55:00', '2025-11-29 17:10:00', 'Cable installation', 'mobile'),
+    ('h1a2b3c4-1129-4001-8001-000000000006', '550e8400-e29b-41d4-a716-446655440006', 'Ang Mo Kio Industrial Park', '2025-11-29 09:00:00', '2025-11-29 17:25:00', 'Equipment inspection', 'mobile');
+
+-- Week of December 1-5, 2025
+INSERT OR IGNORE INTO check_in_records (id, user_id, location, check_in_time, check_out_time, notes, device_type)
+VALUES 
+    -- December 1 (Monday)
+    ('h1a2b3c4-1201-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'Changi Business Park', '2025-12-01 08:50:00', '2025-12-01 18:05:00', 'Monthly system check', 'mobile'),
+    ('h1a2b3c4-1201-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', '2025-12-01 09:00:00', '2025-12-01 17:55:00', 'December planning', 'desktop'),
+    ('h1a2b3c4-1201-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Tuas', '2025-12-01 08:35:00', '2025-12-01 17:40:00', 'Industrial maintenance', 'mobile'),
+    ('h1a2b3c4-1201-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440004', 'Suntec City', '2025-12-01 09:10:00', '2025-12-01 18:15:00', 'IT audit preparation', 'desktop'),
+    ('h1a2b3c4-1201-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440005', 'Kaki Bukit', '2025-12-01 08:45:00', '2025-12-01 17:50:00', 'Network upgrade', 'mobile'),
+    ('h1a2b3c4-1201-4001-8001-000000000006', '550e8400-e29b-41d4-a716-446655440006', 'Science Park', '2025-12-01 09:05:00', '2025-12-01 18:00:00', 'Lab equipment check', 'desktop'),
+    
+    -- December 2 (Tuesday)
+    ('h1a2b3c4-1202-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'Loyang', '2025-12-02 08:40:00', '2025-12-02 17:55:00', 'Logistics facility support', 'mobile'),
+    ('h1a2b3c4-1202-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Paya Lebar Quarter', '2025-12-02 09:00:00', '2025-12-02 18:00:00', 'Project review meeting', 'desktop'),
+    ('h1a2b3c4-1202-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Jurong Industrial Estate', '2025-12-02 08:30:00', '2025-12-02 17:45:00', 'Valve maintenance', 'mobile'),
+    ('h1a2b3c4-1202-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440004', 'Marina Bay Financial Centre', '2025-12-02 09:05:00', '2025-12-02 18:10:00', 'Server deployment', 'desktop'),
+    ('h1a2b3c4-1202-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440005', 'Defu Lane', '2025-12-02 08:50:00', '2025-12-02 17:40:00', 'Fiber installation', 'mobile'),
+    
+    -- December 3 (Wednesday)
+    ('h1a2b3c4-1203-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'Mapletree Business City', '2025-12-03 09:00:00', '2025-12-03 18:00:00', 'Building automation review', 'mobile'),
+    ('h1a2b3c4-1203-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', '2025-12-03 08:55:00', '2025-12-03 17:50:00', 'Engineering documentation', 'desktop'),
+    ('h1a2b3c4-1203-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Kallang Way', '2025-12-03 08:35:00', '2025-12-03 17:35:00', 'Pump maintenance', 'mobile'),
+    ('h1a2b3c4-1203-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440004', 'Tanjong Pagar', '2025-12-03 09:10:00', '2025-12-03 18:05:00', 'Data center support', 'desktop'),
+    ('h1a2b3c4-1203-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440005', 'Changi Business Park', '2025-12-03 08:45:00', '2025-12-03 17:55:00', 'Network monitoring setup', 'mobile'),
+    ('h1a2b3c4-1203-4001-8001-000000000006', '550e8400-e29b-41d4-a716-446655440006', 'One-North', '2025-12-03 09:00:00', '2025-12-03 18:00:00', 'R&D facility inspection', 'desktop'),
+    
+    -- December 4 (Thursday)
+    ('h1a2b3c4-1204-4001-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'Jurong Island', '2025-12-04 07:30:00', '2025-12-04 17:00:00', 'Petrochemical facility work', 'mobile'),
+    ('h1a2b3c4-1204-4001-8001-000000000002', '550e8400-e29b-41d4-a716-446655440002', 'Suntec City', '2025-12-04 09:00:00', '2025-12-04 18:00:00', 'Client presentation', 'desktop'),
+    ('h1a2b3c4-1204-4001-8001-000000000003', '550e8400-e29b-41d4-a716-446655440003', 'Tuas', '2025-12-04 08:00:00', '2025-12-04 17:30:00', 'Motor replacement', 'mobile'),
+    ('h1a2b3c4-1204-4001-8001-000000000004', '550e8400-e29b-41d4-a716-446655440004', 'Raffles Place', '2025-12-04 09:05:00', '2025-12-04 18:10:00', 'Executive briefing', 'desktop'),
+    ('h1a2b3c4-1204-4001-8001-000000000005', '550e8400-e29b-41d4-a716-446655440005', 'Woodlands Regional Centre', '2025-12-04 08:40:00', '2025-12-04 17:45:00', 'Branch network upgrade', 'mobile');
+
+-- Today's check-ins (December 5, 2025) - these use date('now') for demo purposes
 INSERT OR IGNORE INTO check_in_records (id, user_id, location, check_in_time, check_out_time, notes, device_type)
 VALUES 
     -- Michael Chen - Field Engineer, checked in at 9:05 AM on mobile, still active

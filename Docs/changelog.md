@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.3.0] - December 2025
+
+### 🎉 New Features
+
+#### **Projects Module Enhancements**
+- **Member & Task Counts**: Project cards now display accurate member and task counts
+  - Backend API updated to include `memberCount` and `taskCount` in project list response
+  - Counts are calculated dynamically from `project_members` and `tasks` tables
+
+#### **Task Pagination in Project Details**
+- **Paginated Task List**: Project tasks are now paginated instead of scrollable
+  - 5 tasks displayed per page
+  - Navigation controls with previous/next buttons
+  - Page indicator showing current page and total pages
+  - "Showing X-Y of Z" count display
+  - Automatic page reset when switching projects
+
+### 🌏 Data Improvements
+
+#### **Singapore Location Data**
+- **Realistic Singapore Locations**: Updated all placeholder locations to actual Singapore business districts
+  - Changi Business Park
+  - Marina Bay Financial Centre
+  - Jurong Industrial Estate
+  - Suntec City
+  - Tuas
+  - One-North
+- Updated `check_in_records` and `user_locations` tables in schema.sql
+
+### 🔧 Technical Improvements
+
+#### **Backend Updates**
+- **projects.rs**: Enhanced `get_projects` endpoint to include member and task counts per project
+  - Added SQL queries to count members and tasks for each project
+  - Returns `memberCount` and `taskCount` in API response
+
+#### **Frontend Updates**
+- **Projects.tsx**:
+  - Added `ChevronLeft` and `ChevronRight` icons from lucide-react
+  - New state: `taskPage` for pagination tracking
+  - New constant: `tasksPerPage = 5`
+  - Pagination controls with disabled states at boundaries
+  - Page reset on project selection
+
+---
+
 ## [1.2.0] - December 2025
 
 ### 🎨 UI/UX Improvements
