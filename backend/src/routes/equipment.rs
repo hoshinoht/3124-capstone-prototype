@@ -29,7 +29,7 @@ async fn get_equipment(
     query: web::Query<GetEquipmentQuery>,
 ) -> HttpResponse {
     let mut sql = String::from(
-        "SELECT id, name, category, location, status, serial_number, purchase_date, last_maintenance, notes, created_at, updated_at FROM equipment WHERE 1=1",
+        "SELECT id, name, category, status, serial_number, purchase_date, last_maintenance, notes, created_at, updated_at FROM equipment WHERE 1=1",
     );
 
     if let Some(ref status) = query.status {
@@ -38,13 +38,10 @@ async fn get_equipment(
     if let Some(ref category) = query.category {
         sql.push_str(&format!(" AND category = '{}'", category));
     }
-    if let Some(ref location) = query.location {
-        sql.push_str(&format!(" AND location = '{}'", location));
-    }
     if let Some(ref search) = query.search {
         sql.push_str(&format!(
-            " AND (name LIKE '%{}%' OR category LIKE '%{}%' OR location LIKE '%{}%')",
-            search, search, search
+            " AND (name LIKE '%{}%' OR category LIKE '%{}%')",
+            search, search
         ));
     }
 
@@ -63,7 +60,6 @@ async fn get_equipment(
                         "id": e.id,
                         "name": e.name,
                         "category": e.category,
-                        "location": e.location,
                         "status": e.status,
                         "serialNumber": e.serial_number,
                         "createdAt": e.created_at,
@@ -118,12 +114,11 @@ async fn create_equipment(
     let equipment_id = Uuid::new_v4().to_string();
 
     let result = sqlx::query(
-        "INSERT INTO equipment (id, name, category, location, status, serial_number, notes, created_at, updated_at) VALUES (?, ?, ?, ?, 'available', ?, ?, datetime('now'), datetime('now'))"
+        "INSERT INTO equipment (id, name, category, status, serial_number, notes, created_at, updated_at) VALUES (?, ?, ?, 'available', ?, ?, datetime('now'), datetime('now'))"
     )
     .bind(&equipment_id)
     .bind(&body.name)
     .bind(&body.category)
-    .bind(&body.location)
     .bind(&body.serial_number)
     .bind(&body.notes)
     .execute(pool.get_ref())
@@ -137,7 +132,6 @@ async fn create_equipment(
                     "id": equipment_id,
                     "name": body.name,
                     "category": body.category,
-                    "location": body.location,
                     "status": "available",
                     "serialNumber": body.serial_number,
                     "notes": body.notes
@@ -270,7 +264,7 @@ async fn get_equipment_details(
     let equipment_id = path.into_inner();
 
     let result = sqlx::query_as::<_, Equipment>(
-        "SELECT id, name, category, location, status, serial_number, purchase_date, last_maintenance, notes, created_at, updated_at FROM equipment WHERE id = ?"
+        "SELECT id, name, category, status, serial_number, purchase_date, last_maintenance, notes, created_at, updated_at FROM equipment WHERE id = ?"
     )
     .bind(&equipment_id)
     .fetch_optional(pool.get_ref())
@@ -306,7 +300,6 @@ async fn get_equipment_details(
                         "id": equipment.id,
                         "name": equipment.name,
                         "category": equipment.category,
-                        "location": equipment.location,
                         "status": equipment.status,
                         "serialNumber": equipment.serial_number,
                         "purchaseDate": equipment.purchase_date,

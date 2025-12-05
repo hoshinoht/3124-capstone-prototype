@@ -29,7 +29,7 @@ async fn get_projects(
     req: HttpRequest,
     query: web::Query<GetProjectsQuery>,
 ) -> HttpResponse {
-    let user_id = match req.extensions().get::<String>() {
+    let _user_id = match req.extensions().get::<String>() {
         Some(id) => id.clone(),
         None => {
             return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -39,12 +39,11 @@ async fn get_projects(
         }
     };
 
-    // Get projects where user is a member
+    // Get all projects (visible to all authenticated users)
     let mut sql = String::from(
-        "SELECT DISTINCT p.id, p.name, p.description, p.status, p.created_by, p.created_at, p.updated_at
+        "SELECT p.id, p.name, p.description, p.status, p.created_by, p.created_at, p.updated_at
          FROM projects p
-         INNER JOIN project_members pm ON p.id = pm.project_id
-         WHERE pm.user_id = ?"
+         WHERE 1=1",
     );
 
     if let Some(ref status) = query.status {
@@ -60,26 +59,43 @@ async fn get_projects(
     sql.push_str(" ORDER BY p.updated_at DESC");
 
     let result = sqlx::query_as::<_, Project>(&sql)
-        .bind(&user_id)
         .fetch_all(pool.get_ref())
         .await;
 
     match result {
         Ok(projects) => {
-            let projects_json: Vec<serde_json::Value> = projects
-                .iter()
-                .map(|p| {
-                    serde_json::json!({
-                        "id": p.id,
-                        "name": p.name,
-                        "description": p.description,
-                        "status": p.status,
-                        "createdBy": p.created_by,
-                        "createdAt": p.created_at,
-                        "updatedAt": p.updated_at
-                    })
-                })
-                .collect();
+            let mut projects_json: Vec<serde_json::Value> = Vec::new();
+
+            for p in projects.iter() {
+                // Get member count for each project
+                let member_count = sqlx::query_scalar::<_, i64>(
+                    "SELECT COUNT(*) FROM project_members WHERE project_id = ?",
+                )
+                .bind(&p.id)
+                .fetch_one(pool.get_ref())
+                .await
+                .unwrap_or(0);
+
+                // Get task count for each project
+                let task_count =
+                    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM tasks WHERE project_id = ?")
+                        .bind(&p.id)
+                        .fetch_one(pool.get_ref())
+                        .await
+                        .unwrap_or(0);
+
+                projects_json.push(serde_json::json!({
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "status": p.status,
+                    "createdBy": p.created_by,
+                    "createdAt": p.created_at,
+                    "updatedAt": p.updated_at,
+                    "memberCount": member_count,
+                    "taskCount": task_count
+                }));
+            }
 
             HttpResponse::Ok().json(serde_json::json!({
                 "success": true,
@@ -186,6 +202,7 @@ async fn get_project(
     req: HttpRequest,
     path: web::Path<String>,
 ) -> HttpResponse {
+    // Get user_id to check their role in the project
     let user_id = match req.extensions().get::<String>() {
         Some(id) => id.clone(),
         None => {
@@ -198,23 +215,7 @@ async fn get_project(
 
     let project_id = path.into_inner();
 
-    // Check if user is a member
-    let is_member = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM project_members WHERE project_id = ? AND user_id = ?",
-    )
-    .bind(&project_id)
-    .bind(&user_id)
-    .fetch_one(pool.get_ref())
-    .await
-    .unwrap_or(0);
-
-    if is_member == 0 {
-        return HttpResponse::Forbidden().json(serde_json::json!({
-            "success": false,
-            "error": { "code": "FORBIDDEN", "message": "You are not a member of this project" }
-        }));
-    }
-
+    // All authenticated users can view project details
     let result = sqlx::query_as::<_, Project>(
         "SELECT id, name, description, status, created_by, created_at, updated_at 
          FROM projects WHERE id = ?",
@@ -242,6 +243,16 @@ async fn get_project(
                     .await
                     .unwrap_or(0);
 
+            // Get the current user's role in the project (null if not a member)
+            let current_user_role = sqlx::query_scalar::<_, String>(
+                "SELECT role FROM project_members WHERE project_id = ? AND user_id = ?",
+            )
+            .bind(&project_id)
+            .bind(&user_id)
+            .fetch_optional(pool.get_ref())
+            .await
+            .unwrap_or(None);
+
             HttpResponse::Ok().json(serde_json::json!({
                 "success": true,
                 "data": {
@@ -254,7 +265,8 @@ async fn get_project(
                         "createdAt": project.created_at,
                         "updatedAt": project.updated_at,
                         "memberCount": member_count,
-                        "taskCount": task_count
+                        "taskCount": task_count,
+                        "currentUserRole": current_user_role
                     }
                 }
             }))
@@ -437,35 +449,17 @@ async fn get_project_members(
     req: HttpRequest,
     path: web::Path<String>,
 ) -> HttpResponse {
-    let user_id = match req.extensions().get::<String>() {
-        Some(id) => id.clone(),
-        None => {
-            return HttpResponse::Unauthorized().json(serde_json::json!({
-                "success": false,
-                "error": { "code": "UNAUTHORIZED", "message": "Not authenticated" }
-            }));
-        }
-    };
-
-    let project_id = path.into_inner();
-
-    // Check if user is a member
-    let is_member = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM project_members WHERE project_id = ? AND user_id = ?",
-    )
-    .bind(&project_id)
-    .bind(&user_id)
-    .fetch_one(pool.get_ref())
-    .await
-    .unwrap_or(0);
-
-    if is_member == 0 {
-        return HttpResponse::Forbidden().json(serde_json::json!({
+    // Just check if user is authenticated (any user can view project members)
+    if req.extensions().get::<String>().is_none() {
+        return HttpResponse::Unauthorized().json(serde_json::json!({
             "success": false,
-            "error": { "code": "FORBIDDEN", "message": "You are not a member of this project" }
+            "error": { "code": "UNAUTHORIZED", "message": "Not authenticated" }
         }));
     }
 
+    let project_id = path.into_inner();
+
+    // All authenticated users can view project members
     let result = sqlx::query_as::<_, (String, String, String, String, String, String)>(
         "SELECT pm.id, pm.user_id, u.first_name, u.last_name, pm.role, pm.added_at
          FROM project_members pm
@@ -693,35 +687,17 @@ async fn get_project_tasks(
     req: HttpRequest,
     path: web::Path<String>,
 ) -> HttpResponse {
-    let user_id = match req.extensions().get::<String>() {
-        Some(id) => id.clone(),
-        None => {
-            return HttpResponse::Unauthorized().json(serde_json::json!({
-                "success": false,
-                "error": { "code": "UNAUTHORIZED", "message": "Not authenticated" }
-            }));
-        }
-    };
-
-    let project_id = path.into_inner();
-
-    // Check if user is a member
-    let is_member = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM project_members WHERE project_id = ? AND user_id = ?",
-    )
-    .bind(&project_id)
-    .bind(&user_id)
-    .fetch_one(pool.get_ref())
-    .await
-    .unwrap_or(0);
-
-    if is_member == 0 {
-        return HttpResponse::Forbidden().json(serde_json::json!({
+    // Just check if user is authenticated (any user can view project tasks)
+    if req.extensions().get::<String>().is_none() {
+        return HttpResponse::Unauthorized().json(serde_json::json!({
             "success": false,
-            "error": { "code": "FORBIDDEN", "message": "You are not a member of this project" }
+            "error": { "code": "UNAUTHORIZED", "message": "Not authenticated" }
         }));
     }
 
+    let project_id = path.into_inner();
+
+    // All authenticated users can view project tasks
     let result = sqlx::query_as::<_, (String, String, Option<String>, String, String, Option<String>, String, bool, String, String)>(
         "SELECT t.id, t.title, t.description, t.urgency, t.department, t.assignee_id, t.deadline, t.is_completed, t.created_at, t.updated_at
          FROM tasks t

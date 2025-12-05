@@ -34,14 +34,21 @@ interface EquipmentBooking {
 
 type TabType = "tasks" | "addTask" | "equipmentBooking";
 
+const COMPLETED_TASKS_PAGE_SIZE = 10;
+
 export function TaskManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("tasks");
   const [currentDate, setCurrentDate] = useState(new Date()); // Today's date
   const [selectedDate, setSelectedDate] = useState(new Date()); // Selected date for bookings
   const [showAllTasks, setShowAllTasks] = useState(false); // Toggle to show all tasks
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false); // Toggle to show completed tasks
   const [loading, setLoading] = useState(true);
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
+  const [completedTasksPage, setCompletedTasksPage] = useState(1);
+  const [completedTasksTotal, setCompletedTasksTotal] = useState(0);
+  const [loadingCompletedTasks, setLoadingCompletedTasks] = useState(false);
 
   const [bookings, setBookings] = useState<EquipmentBooking[]>([]);
 
@@ -64,15 +71,46 @@ export function TaskManagement() {
     purpose: "",
   });
 
+  // Function to fetch completed tasks with pagination
+  const fetchCompletedTasks = async (page: number) => {
+    try {
+      setLoadingCompletedTasks(true);
+      const offset = (page - 1) * COMPLETED_TASKS_PAGE_SIZE;
+      const response = await tasksApi.getAll({
+        isCompleted: true,
+        limit: COMPLETED_TASKS_PAGE_SIZE,
+        offset: offset,
+      });
+      if (response.data?.tasks) {
+        setCompletedTasks(response.data.tasks.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description || "",
+          urgency: t.priority === "high" || t.urgency === "urgent" ? "urgent" : (t.urgency === "medium" ? "medium" : "low"),
+          deadline: t.due_date || t.deadline || "No deadline",
+          completed: true,
+          projectId: t.projectId || t.project_id,
+          projectName: t.projectName || t.project_name,
+          taskType: t.task_type || t.taskType || "task",
+        })));
+        setCompletedTasksTotal(response.data.pagination?.total || 0);
+      }
+    } catch (err) {
+      console.error("Failed to fetch completed tasks:", err);
+    } finally {
+      setLoadingCompletedTasks(false);
+    }
+  };
+
   // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // Fetch tasks
+        // Fetch active (non-completed) tasks
         try {
-          const response = await tasksApi.getAll();
+          const response = await tasksApi.getAll({ isCompleted: false });
           if (response.data?.tasks) {
             setTasks(response.data.tasks.map((t: any) => ({
               id: t.id,
@@ -127,6 +165,13 @@ export function TaskManagement() {
 
     fetchData();
   }, []);
+
+  // Fetch completed tasks when toggling view or changing page
+  useEffect(() => {
+    if (showCompletedTasks) {
+      fetchCompletedTasks(completedTasksPage);
+    }
+  }, [showCompletedTasks, completedTasksPage]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -199,6 +244,14 @@ export function TaskManagement() {
 
   const filteredTasks = getTasksForDate(selectedDate);
 
+  // Pagination for completed tasks
+  const completedTasksTotalPages = Math.ceil(completedTasksTotal / COMPLETED_TASKS_PAGE_SIZE);
+  const handleCompletedTasksPageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= completedTasksTotalPages) {
+      setCompletedTasksPage(newPage);
+    }
+  };
+
   // Get the highest severity task for a given date (for calendar dots)
   const getHighestSeverityForDate = (date: Date): "urgent" | "medium" | "low" | null => {
     const tasksForDate = getTasksForDate(date).filter(t => !t.completed);
@@ -220,35 +273,60 @@ export function TaskManagement() {
     }
   };
 
-  const handleToggleTask = async (taskId: number) => {
-    const task = tasks.find(t => t.id === taskId);
+  const handleToggleTask = async (taskId: number, isFromCompletedList: boolean = false) => {
+    const taskList = isFromCompletedList ? completedTasks : tasks;
+    const task = taskList.find(t => t.id === taskId);
     if (!task) return;
 
     // Optimistic update
-    setTasks(tasks.map(t =>
-      t.id === taskId ? { ...t, completed: !t.completed } : t
-    ));
+    if (isFromCompletedList) {
+      setCompletedTasks(completedTasks.filter(t => t.id !== taskId));
+      setTasks([...tasks, { ...task, completed: false }]);
+    } else {
+      setTasks(tasks.filter(t => t.id !== taskId));
+    }
 
     try {
       await tasksApi.update(String(taskId), { isCompleted: !task.completed });
+      // Refresh completed tasks if viewing them
+      if (showCompletedTasks) {
+        fetchCompletedTasks(completedTasksPage);
+      }
     } catch (err) {
       console.error("Failed to update task:", err);
       // Revert on error
-      setTasks(tasks.map(t =>
-        t.id === taskId ? { ...t, completed: task.completed } : t
-      ));
+      if (isFromCompletedList) {
+        setCompletedTasks([...completedTasks]);
+        setTasks(tasks.filter(t => t.id !== taskId));
+      } else {
+        setTasks([...tasks, task]);
+      }
     }
   };
 
-  const handleDeleteTask = async (taskId: number) => {
-    const originalTasks = [...tasks];
-    setTasks(tasks.filter(task => task.id !== taskId));
+  const handleDeleteTask = async (taskId: number, isFromCompletedList: boolean = false) => {
+    if (isFromCompletedList) {
+      const originalCompletedTasks = [...completedTasks];
+      setCompletedTasks(completedTasks.filter(task => task.id !== taskId));
 
-    try {
-      await tasksApi.delete(String(taskId));
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-      setTasks(originalTasks);
+      try {
+        await tasksApi.delete(String(taskId));
+        // Refresh to update pagination
+        fetchCompletedTasks(completedTasksPage);
+      } catch (err) {
+        console.error("Failed to delete task:", err);
+        setCompletedTasks(originalCompletedTasks);
+      }
+    } else {
+      const originalTasks = [...tasks];
+      setTasks(tasks.filter(task => task.id !== taskId));
+
+      try {
+        await tasksApi.delete(String(taskId));
+      } catch (err) {
+        console.error("Failed to delete task:", err);
+        setTasks(originalTasks);
+      }
     }
   };
 
@@ -526,86 +604,232 @@ export function TaskManagement() {
             {/* Tasks Tab */}
             {activeTab === "tasks" && (
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg mb-1">
-                      {showAllTasks ? "All Tasks" : `Tasks for ${formatSelectedDate(selectedDate)}`}
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      {showAllTasks
-                        ? `${tasks.length} total task${tasks.length === 1 ? '' : 's'}`
-                        : filteredTasks.length === 0
-                          ? "No tasks scheduled for this date"
-                          : `${filteredTasks.length} task${filteredTasks.length === 1 ? '' : 's'} scheduled`}
-                    </p>
-                  </div>
+                {/* View Toggle */}
+                <div className="flex gap-2 mb-4">
                   <button
-                    onClick={() => setShowAllTasks(!showAllTasks)}
-                    className="text-sm text-blue-600 hover:underline"
+                    onClick={() => { setShowCompletedTasks(false); setShowAllTasks(false); }}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${!showCompletedTasks && !showAllTasks
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
                   >
-                    {showAllTasks ? "Show by date" : "View all tasks"}
+                    By Date
+                  </button>
+                  <button
+                    onClick={() => { setShowCompletedTasks(false); setShowAllTasks(true); }}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${!showCompletedTasks && showAllTasks
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                  >
+                    All Active
+                  </button>
+                  <button
+                    onClick={() => { setShowCompletedTasks(true); setShowAllTasks(false); setCompletedTasksPage(1); }}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${showCompletedTasks
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                  >
+                    Completed
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  {!showAllTasks && filteredTasks.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>No tasks for {formatSelectedDate(selectedDate)}</p>
-                      <button
-                        onClick={() => setActiveTab("addTask")}
-                        className="mt-2 text-sm text-blue-600 hover:underline"
-                      >
-                        + Add a task for this date
-                      </button>
-                    </div>
-                  ) : (
-                    (showAllTasks ? tasks : filteredTasks).map((task) => (
-                      <div
-                        key={task.id}
-                        className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                      >
-                        <Checkbox
-                          checked={task.completed}
-                          onCheckedChange={() => handleToggleTask(task.id)}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 mb-1 flex-wrap">
-                            <span className="text-sm">{task.taskType === "meeting" ? "📅" : "📋"}</span>
-                            <h3 className={`text-sm ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                              {task.title}
-                            </h3>
-                            {task.taskType === "meeting" && (
-                              <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs px-2 py-0">
-                                Meeting
-                              </Badge>
-                            )}
-                            <Badge className={`${getUrgencyColor(task.urgency)} text-xs px-2 py-0`}>
-                              {task.urgency}
-                            </Badge>
-                            {task.projectName && (
-                              <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-xs px-2 py-0">
-                                <FolderKanban className="w-3 h-3 mr-1" />
-                                {task.projectName}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-600 mb-2">{task.description}</p>
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <Clock className="w-3 h-3" />
-                            <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteTask(task.id)}
-                          className="p-1 hover:bg-gray-100 rounded transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+                {/* Completed Tasks View with Pagination */}
+                {showCompletedTasks ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="text-lg mb-1">Completed Tasks</h2>
+                        <p className="text-sm text-gray-600">
+                          {completedTasksTotal} completed task{completedTasksTotal === 1 ? '' : 's'}
+                        </p>
                       </div>
-                    )))}
-                </div>
+                    </div>
+
+                    {loadingCompletedTasks ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      </div>
+                    ) : completedTasks.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>No completed tasks yet</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-3">
+                          {completedTasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-gray-50"
+                            >
+                              <Checkbox
+                                checked={true}
+                                onCheckedChange={() => handleToggleTask(task.id, true)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start gap-2 mb-1 flex-wrap">
+                                  <span className="text-sm">{task.taskType === "meeting" ? "📅" : "📋"}</span>
+                                  <h3 className="text-sm line-through text-gray-500">
+                                    {task.title}
+                                  </h3>
+                                  {task.taskType === "meeting" && (
+                                    <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs px-2 py-0">
+                                      Meeting
+                                    </Badge>
+                                  )}
+                                  <Badge className={`${getUrgencyColor(task.urgency)} text-xs px-2 py-0`}>
+                                    {task.urgency}
+                                  </Badge>
+                                  {task.projectName && (
+                                    <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-xs px-2 py-0">
+                                      <FolderKanban className="w-3 h-3 mr-1" />
+                                      {task.projectName}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 mb-2">{task.description}</p>
+                                <div className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteTask(task.id, true)}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Pagination Controls */}
+                        {completedTasksTotalPages > 1 && (
+                          <div className="flex items-center justify-center gap-2 mt-6">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCompletedTasksPageChange(completedTasksPage - 1)}
+                              disabled={completedTasksPage === 1}
+                              className="px-3"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: completedTasksTotalPages }, (_, i) => i + 1).map((page) => (
+                                <Button
+                                  key={page}
+                                  variant={page === completedTasksPage ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => handleCompletedTasksPageChange(page)}
+                                  className={`w-8 h-8 p-0 ${page === completedTasksPage ? 'bg-gray-900' : ''}`}
+                                >
+                                  {page}
+                                </Button>
+                              ))}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCompletedTasksPageChange(completedTasksPage + 1)}
+                              disabled={completedTasksPage === completedTasksTotalPages}
+                              className="px-3"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Page Info */}
+                        <p className="text-center text-xs text-gray-500 mt-2">
+                          Page {completedTasksPage} of {completedTasksTotalPages} ({completedTasksTotal} total)
+                        </p>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  /* Active Tasks View */
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="text-lg mb-1">
+                          {showAllTasks ? "All Active Tasks" : `Tasks for ${formatSelectedDate(selectedDate)}`}
+                        </h2>
+                        <p className="text-sm text-gray-600">
+                          {showAllTasks
+                            ? `${tasks.length} active task${tasks.length === 1 ? '' : 's'}`
+                            : filteredTasks.length === 0
+                              ? "No tasks scheduled for this date"
+                              : `${filteredTasks.length} task${filteredTasks.length === 1 ? '' : 's'} scheduled`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {!showAllTasks && filteredTasks.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                          <p>No tasks for {formatSelectedDate(selectedDate)}</p>
+                          <button
+                            onClick={() => setActiveTab("addTask")}
+                            className="mt-2 text-sm text-blue-600 hover:underline"
+                          >
+                            + Add a task for this date
+                          </button>
+                        </div>
+                      ) : (
+                        (showAllTasks ? tasks : filteredTasks).map((task) => (
+                          <div
+                            key={task.id}
+                            className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                          >
+                            <Checkbox
+                              checked={task.completed}
+                              onCheckedChange={() => handleToggleTask(task.id)}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-2 mb-1 flex-wrap">
+                                <span className="text-sm">{task.taskType === "meeting" ? "📅" : "📋"}</span>
+                                <h3 className={`text-sm ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                                  {task.title}
+                                </h3>
+                                {task.taskType === "meeting" && (
+                                  <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs px-2 py-0">
+                                    Meeting
+                                  </Badge>
+                                )}
+                                <Badge className={`${getUrgencyColor(task.urgency)} text-xs px-2 py-0`}>
+                                  {task.urgency}
+                                </Badge>
+                                {task.projectName && (
+                                  <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-xs px-2 py-0">
+                                    <FolderKanban className="w-3 h-3 mr-1" />
+                                    {task.projectName}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 mb-2">{task.description}</p>
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <Clock className="w-3 h-3" />
+                                <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="p-1 hover:bg-gray-100 rounded transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        )))
+                      }
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

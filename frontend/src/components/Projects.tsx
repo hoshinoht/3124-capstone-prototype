@@ -11,6 +11,8 @@ import {
   FolderKanban,
   X,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -51,6 +53,8 @@ export function Projects() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [taskPage, setTaskPage] = useState(1);
+  const tasksPerPage = 5;
 
   const [newProject, setNewProject] = useState({
     name: "",
@@ -119,6 +123,7 @@ export function Projects() {
   };
 
   const handleSelectProject = async (project: Project) => {
+    setTaskPage(1); // Reset to first page when selecting a new project
     await fetchProjectDetails(project.id);
     setActiveTab("details");
   };
@@ -460,21 +465,26 @@ export function Projects() {
                   {selectedProject.description || "No description"}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={openEditModal}>
-                  <Edit className="w-4 h-4 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openDeleteModal(selectedProject)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Delete
-                </Button>
-              </div>
+              {/* Only show edit/delete buttons for owners and admins */}
+              {(selectedProject.currentUserRole === "owner" || selectedProject.currentUserRole === "admin") && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={openEditModal}>
+                    <Edit className="w-4 h-4 mr-1" />
+                    Edit
+                  </Button>
+                  {selectedProject.currentUserRole === "owner" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openDeleteModal(selectedProject)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -482,14 +492,17 @@ export function Projects() {
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium">Team Members</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddMemberModal(true)}
-                  >
-                    <UserPlus className="w-4 h-4 mr-1" />
-                    Add Member
-                  </Button>
+                  {/* Only show Add Member button for owners and admins */}
+                  {(selectedProject.currentUserRole === "owner" || selectedProject.currentUserRole === "admin") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddMemberModal(true)}
+                    >
+                      <UserPlus className="w-4 h-4 mr-1" />
+                      Add Member
+                    </Button>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -516,14 +529,16 @@ export function Projects() {
                             </Badge>
                           </div>
                         </div>
-                        {member.role !== "owner" && (
-                          <button
-                            onClick={() => handleRemoveMember(member.userId)}
-                            className="p-1 hover:bg-gray-200 rounded transition-colors"
-                          >
-                            <X className="w-4 h-4 text-gray-500" />
-                          </button>
-                        )}
+                        {/* Only show remove button for owners/admins and not for the owner role */}
+                        {member.role !== "owner" &&
+                          (selectedProject.currentUserRole === "owner" || selectedProject.currentUserRole === "admin") && (
+                            <button
+                              onClick={() => handleRemoveMember(member.userId)}
+                              className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            >
+                              <X className="w-4 h-4 text-gray-500" />
+                            </button>
+                          )}
                       </div>
                     ))
                   )}
@@ -539,49 +554,81 @@ export function Projects() {
                   </span>
                 </div>
 
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-2">
                   {projectTasks.length === 0 ? (
                     <p className="text-sm text-gray-500 py-4 text-center">
                       No tasks assigned to this project yet
                     </p>
                   ) : (
-                    projectTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-md"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm ${task.isCompleted
-                              ? "line-through text-gray-500"
-                              : "text-gray-900"
-                              }`}
+                    <>
+                      {projectTasks
+                        .slice((taskPage - 1) * tasksPerPage, taskPage * tasksPerPage)
+                        .map((task) => (
+                          <div
+                            key={task.id}
+                            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-md"
                           >
-                            {task.title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge
-                              className={`text-xs ${task.urgency === "urgent"
-                                ? "bg-red-100 text-red-700"
-                                : task.urgency === "high"
-                                  ? "bg-orange-100 text-orange-700"
-                                  : "bg-gray-100 text-gray-700"
-                                }`}
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`text-sm ${task.isCompleted
+                                  ? "line-through text-gray-500"
+                                  : "text-gray-900"
+                                  }`}
+                              >
+                                {task.title}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge
+                                  className={`text-xs ${task.urgency === "urgent"
+                                    ? "bg-red-100 text-red-700"
+                                    : task.urgency === "high"
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-gray-100 text-gray-700"
+                                    }`}
+                                >
+                                  {task.urgency}
+                                </Badge>
+                                <span className="text-xs text-gray-500">
+                                  Due: {task.deadline}
+                                </span>
+                              </div>
+                            </div>
+                            {task.isCompleted && (
+                              <Badge className="bg-green-100 text-green-700 text-xs ml-2">
+                                Done
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+
+                      {/* Pagination Controls */}
+                      {projectTasks.length > tasksPerPage && (
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-200 mt-3">
+                          <span className="text-xs text-gray-500">
+                            Showing {(taskPage - 1) * tasksPerPage + 1}-{Math.min(taskPage * tasksPerPage, projectTasks.length)} of {projectTasks.length}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setTaskPage((p) => Math.max(1, p - 1))}
+                              disabled={taskPage === 1}
+                              className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
-                              {task.urgency}
-                            </Badge>
-                            <span className="text-xs text-gray-500">
-                              Due: {task.deadline}
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-xs text-gray-600 px-2">
+                              {taskPage} / {Math.ceil(projectTasks.length / tasksPerPage)}
                             </span>
+                            <button
+                              onClick={() => setTaskPage((p) => Math.min(Math.ceil(projectTasks.length / tasksPerPage), p + 1))}
+                              disabled={taskPage >= Math.ceil(projectTasks.length / tasksPerPage)}
+                              className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
-                        {task.isCompleted && (
-                          <Badge className="bg-green-100 text-green-700 text-xs ml-2">
-                            Done
-                          </Badge>
-                        )}
-                      </div>
-                    ))
+                      )}
+                    </>
                   )}
                 </div>
               </div>

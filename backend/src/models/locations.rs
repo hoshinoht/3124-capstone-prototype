@@ -12,6 +12,7 @@ pub struct CheckInRecord {
     pub check_in_time: String,
     pub check_out_time: Option<String>,
     pub notes: Option<String>,
+    pub device_type: Option<String>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
@@ -104,7 +105,12 @@ pub struct SearchLocationsQuery {
 }
 
 impl CheckInRecord {
-    pub fn new(user_id: String, location: String, notes: Option<String>) -> Self {
+    pub fn new(
+        user_id: String,
+        location: String,
+        notes: Option<String>,
+        device_type: Option<String>,
+    ) -> Self {
         CheckInRecord {
             id: Uuid::new_v4().to_string(),
             user_id,
@@ -112,8 +118,47 @@ impl CheckInRecord {
             check_in_time: chrono::Utc::now().to_rfc3339(),
             check_out_time: None,
             notes,
+            device_type,
             created_at: None,
             updated_at: None,
         }
     }
+}
+
+/// Determines if a User-Agent string is from a mobile device
+pub fn detect_device_type(user_agent: &str) -> &'static str {
+    let ua_lower = user_agent.to_lowercase();
+
+    // Check for common mobile identifiers
+    let mobile_keywords = [
+        "mobile",
+        "android",
+        "iphone",
+        "ipad",
+        "ipod",
+        "blackberry",
+        "windows phone",
+        "opera mini",
+        "opera mobi",
+        "iemobile",
+        "webos",
+        "palm",
+        "symbian",
+        "nokia",
+        "samsung",
+        "lg-",
+        "htc",
+        "mot-",
+        "kindle",
+        "silk",
+        "tablet",
+    ];
+
+    for keyword in mobile_keywords {
+        if ua_lower.contains(keyword) {
+            return "mobile";
+        }
+    }
+
+    "desktop"
 }

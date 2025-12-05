@@ -43,6 +43,28 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to detect OS
+is_windows() {
+    [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "mingw"* ]] || [[ "$OSTYPE" == "cygwin" ]]
+}
+
+# Function to kill process on a specific port (cross-platform)
+kill_port() {
+    local port=$1
+    if is_windows; then
+        # Windows (Git Bash/MSYS2)
+        local pids=$(netstat -ano 2>/dev/null | grep ":$port " | grep "LISTENING" | awk '{print $5}' | sort -u)
+        for pid in $pids; do
+            if [ -n "$pid" ] && [ "$pid" != "0" ]; then
+                taskkill //F //PID "$pid" 2>/dev/null || true
+            fi
+        done
+    else
+        # macOS/Linux
+        lsof -ti:$port | xargs kill -9 2>/dev/null || true
+    fi
+}
+
 # Function to check prerequisites
 check_prerequisites() {
     print_status "Checking prerequisites..."
@@ -89,8 +111,8 @@ stop_services() {
     fi
     
     # Also kill any processes on the ports we use
-    lsof -ti:8080 | xargs kill -9 2>/dev/null || true
-    lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+    kill_port 8080
+    kill_port 5173
 }
 
 # Function to install dependencies
@@ -110,8 +132,12 @@ start_backend() {
     if [ ! -f "database.db" ]; then
         print_status "Initializing database..."
         if [ -f "schema.sql" ]; then
-            sqlite3 database.db < schema.sql
-            print_success "Database initialized"
+            if command_exists sqlite3; then
+                sqlite3 database.db < schema.sql
+                print_success "Database initialized"
+            else
+                print_warning "sqlite3 not found, database will be created on first run by the backend"
+            fi
         else
             print_warning "schema.sql not found, database will be created on first run"
         fi
@@ -215,7 +241,7 @@ main() {
             echo -e "${GREEN}========================================${NC}"
             echo ""
             echo -e "  Backend:  ${BLUE}http://localhost:8080${NC}"
-            echo -e "  Frontend: ${BLUE}http://localhost:5173${NC}"
+            echo -e "  Frontend: ${BLUE}http://localhost:3000${NC}"
             echo ""
             echo -e "  Press ${YELLOW}Ctrl+C${NC} to stop all services"
             echo ""

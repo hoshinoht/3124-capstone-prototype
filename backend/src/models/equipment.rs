@@ -7,7 +7,6 @@ pub struct Equipment {
     pub id: String,
     pub name: String,
     pub category: String,
-    pub location: String,
     pub status: String,
     pub serial_number: Option<String>,
     pub purchase_date: Option<String>,
@@ -23,7 +22,6 @@ pub struct EquipmentResponse {
     pub id: String,
     pub name: String,
     pub category: String,
-    pub location: String,
     pub status: String,
     pub serial_number: Option<String>,
     pub purchase_date: Option<String>,
@@ -105,7 +103,6 @@ pub struct BookingConflict {
 pub struct GetEquipmentQuery {
     pub status: Option<String>,
     pub category: Option<String>,
-    pub location: Option<String>,
     pub search: Option<String>,
 }
 
@@ -121,23 +118,16 @@ pub struct GetBookingsQuery {
 pub struct CreateEquipmentRequest {
     pub name: String,
     pub category: String,
-    pub location: String,
     pub serial_number: Option<String>,
     pub notes: Option<String>,
 }
 
 impl Equipment {
-    pub fn new(
-        name: String,
-        category: String,
-        location: String,
-        serial_number: Option<String>,
-    ) -> Self {
+    pub fn new(name: String, category: String, serial_number: Option<String>) -> Self {
         Equipment {
             id: Uuid::new_v4().to_string(),
             name,
             category,
-            location,
             status: "available".to_string(),
             serial_number,
             purchase_date: None,

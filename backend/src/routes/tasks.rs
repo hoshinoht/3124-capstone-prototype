@@ -20,31 +20,45 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
 }
 
 async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>) -> HttpResponse {
-    let mut sql = String::from(
-        "SELECT t.id, t.title, t.description, t.urgency, t.status, t.department, t.project_id, t.assignee_id, t.created_by, t.deadline, t.completed_at, t.created_at, t.updated_at, t.is_completed, p.name as project_name FROM tasks t LEFT JOIN projects p ON t.project_id = p.id WHERE 1=1",
-    );
+    let mut base_where = String::from("WHERE 1=1");
 
     if let Some(ref status) = query.status {
-        sql.push_str(&format!(" AND t.status = '{}'", status));
+        base_where.push_str(&format!(" AND t.status = '{}'", status));
     }
     if let Some(ref urgency) = query.urgency {
-        sql.push_str(&format!(" AND t.urgency = '{}'", urgency));
+        base_where.push_str(&format!(" AND t.urgency = '{}'", urgency));
     }
     if let Some(ref department) = query.department {
-        sql.push_str(&format!(" AND t.department = '{}'", department));
+        base_where.push_str(&format!(" AND t.department = '{}'", department));
     }
     if let Some(ref project_id) = query.project_id {
-        sql.push_str(&format!(" AND t.project_id = '{}'", project_id));
+        base_where.push_str(&format!(" AND t.project_id = '{}'", project_id));
     }
     if let Some(ref assignee_id) = query.assignee_id {
-        sql.push_str(&format!(" AND t.assignee_id = '{}'", assignee_id));
+        base_where.push_str(&format!(" AND t.assignee_id = '{}'", assignee_id));
     }
     if let Some(is_completed) = query.is_completed {
-        sql.push_str(&format!(
+        base_where.push_str(&format!(
             " AND t.is_completed = {}",
             if is_completed { 1 } else { 0 }
         ));
     }
+
+    // Count query for total
+    let count_sql = format!("SELECT COUNT(*) as count FROM tasks t {}", base_where);
+
+    let total: i32 = match sqlx::query_as::<_, (i32,)>(&count_sql)
+        .fetch_one(pool.get_ref())
+        .await
+    {
+        Ok((count,)) => count,
+        Err(_) => 0,
+    };
+
+    let mut sql = format!(
+        "SELECT t.id, t.title, t.description, t.urgency, t.status, t.department, t.project_id, t.assignee_id, t.created_by, t.deadline, t.completed_at, t.created_at, t.updated_at, t.is_completed, p.name as project_name FROM tasks t LEFT JOIN projects p ON t.project_id = p.id {}",
+        base_where
+    );
 
     sql.push_str(" ORDER BY t.deadline ASC");
 
@@ -122,7 +136,7 @@ async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>
                 "data": {
                     "tasks": tasks_json,
                     "pagination": {
-                        "total": tasks_json.len(),
+                        "total": total,
                         "limit": limit,
                         "offset": offset
                     }

@@ -37,6 +37,7 @@ pub struct UpdateProjectRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AddMemberRequest {
     pub user_id: String,
     pub role: Option<String>,

@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, Users, Target, Video, ExternalLink, Clock, Loader2, AlertTriangle, ArrowLeft, Search, Download, MapPin, Smartphone, CheckCircle, Circle } from "lucide-react";
+import { TrendingUp, Users, Target, Video, ExternalLink, Clock, Loader2, AlertTriangle, ArrowLeft, Search, Download, MapPin, Smartphone, CheckCircle, Circle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { dashboardApi, projectsApi, usersApi, tasksApi, eventsApi } from "../services/api";
+
+const COMPLETED_TASKS_PAGE_SIZE = 10;
 
 interface DashboardStats {
   activeProjects: number;
@@ -62,6 +64,10 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterValue, setFilterValue] = useState("all");
+
+  // Pagination state for completed tasks
+  const [completedTasksPage, setCompletedTasksPage] = useState(1);
+  const [completedTasksTotal, setCompletedTasksTotal] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -122,8 +128,14 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
           setDetailData(usersRes.data?.users || []);
           break;
         case "tasks":
-          const tasksRes = await tasksApi.getAll({ isCompleted: true });
+          setCompletedTasksPage(1);
+          const tasksRes = await tasksApi.getAll({
+            isCompleted: true,
+            limit: COMPLETED_TASKS_PAGE_SIZE,
+            offset: 0
+          });
           setDetailData(tasksRes.data?.tasks || []);
+          setCompletedTasksTotal(tasksRes.data?.pagination?.total || 0);
           break;
         case "meetings":
           const today = new Date().toISOString().split('T')[0];
@@ -135,6 +147,34 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
       console.error("Failed to fetch detail data:", err);
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  // Fetch completed tasks with pagination
+  const fetchCompletedTasksPage = async (page: number) => {
+    setDetailLoading(true);
+    try {
+      const offset = (page - 1) * COMPLETED_TASKS_PAGE_SIZE;
+      const tasksRes = await tasksApi.getAll({
+        isCompleted: true,
+        limit: COMPLETED_TASKS_PAGE_SIZE,
+        offset: offset
+      });
+      setDetailData(tasksRes.data?.tasks || []);
+      setCompletedTasksTotal(tasksRes.data?.pagination?.total || 0);
+      setCompletedTasksPage(page);
+    } catch (err) {
+      console.error("Failed to fetch completed tasks:", err);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // Pagination helpers
+  const completedTasksTotalPages = Math.ceil(completedTasksTotal / COMPLETED_TASKS_PAGE_SIZE);
+  const handleCompletedTasksPageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= completedTasksTotalPages) {
+      fetchCompletedTasksPage(newPage);
     }
   };
 
@@ -226,6 +266,68 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
     if (!name) return colors[0];
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
+  };
+
+  const handleExportCSV = () => {
+    if (!activeDetail || filteredDetailData.length === 0) return;
+
+    let headers: string[] = [];
+    let rows: string[] = [];
+
+    switch (activeDetail) {
+      case "projects":
+        headers = ["Project Name", "Description", "Status", "Created At"];
+        rows = filteredDetailData.map((p: any) => [
+          `"${(p.name || '').replace(/"/g, '""')}"`,
+          `"${(p.description || '').replace(/"/g, '""')}"`,
+          `"${p.status || ''}"`,
+          `"${p.createdAt || p.created_at || ''}"`
+        ].join(","));
+        break;
+      case "members":
+        headers = ["Name", "Email", "Department", "Role", "Status"];
+        rows = filteredDetailData.map((m: any) => [
+          `"${(m.firstName || m.first_name || '')} ${(m.lastName || m.last_name || '')}"`,
+          `"${m.email || ''}"`,
+          `"${m.department || ''}"`,
+          `"${m.role || ''}"`,
+          `"${m.isActive || m.is_active ? 'Active' : 'Inactive'}"`
+        ].join(","));
+        break;
+      case "tasks":
+        headers = ["Title", "Description", "Urgency", "Status", "Deadline", "Assignee"];
+        rows = filteredDetailData.map((t: any) => [
+          `"${(t.title || '').replace(/"/g, '""')}"`,
+          `"${(t.description || '').replace(/"/g, '""')}"`,
+          `"${t.urgency || ''}"`,
+          `"${t.status || ''}"`,
+          `"${t.deadline || ''}"`,
+          `"${t.assigneeName || t.assignee_name || 'Unassigned'}"`
+        ].join(","));
+        break;
+      case "meetings":
+        headers = ["Title", "Date", "Start Time", "End Time", "Host", "Status"];
+        rows = filteredDetailData.map((m: any) => [
+          `"${(m.title || '').replace(/"/g, '""')}"`,
+          `"${m.eventDate || m.event_date || m.date || ''}"`,
+          `"${m.startTime || m.start_time || ''}"`,
+          `"${m.endTime || m.end_time || ''}"`,
+          `"${m.host || m.createdBy || m.created_by || ''}"`,
+          `"${m.status || ''}"`
+        ].join(","));
+        break;
+    }
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${activeDetail}-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -348,9 +450,13 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
                   <CardDescription>{getDetailSubtitle()}</CardDescription>
                 </div>
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={handleExportCSV}
+                disabled={filteredDetailData.length === 0}
+              >
                 <Download className="w-4 h-4 mr-2" />
-                Export Data
+                Export CSV
               </Button>
             </div>
           </CardHeader>
@@ -576,6 +682,48 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination for Completed Tasks */}
+            {activeDetail === "tasks" && completedTasksTotalPages > 1 && !detailLoading && (
+              <div className="mt-6">
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCompletedTasksPageChange(completedTasksPage - 1)}
+                    disabled={completedTasksPage === 1}
+                    className="px-3"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: completedTasksTotalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={page === completedTasksPage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleCompletedTasksPageChange(page)}
+                        className={`w-8 h-8 p-0 ${page === completedTasksPage ? 'bg-gray-900' : ''}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCompletedTasksPageChange(completedTasksPage + 1)}
+                    disabled={completedTasksPage === completedTasksTotalPages}
+                    className="px-3"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-center text-xs text-gray-500 mt-2">
+                  Page {completedTasksPage} of {completedTasksTotalPages} ({completedTasksTotal} total)
+                </p>
               </div>
             )}
           </CardContent>

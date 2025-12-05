@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::models::locations::{
     CheckInRecord, CheckInRequest, CheckOutRequest, GetLocationsQuery, LocationHistoryQuery,
+    detect_device_type,
 };
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
@@ -13,6 +14,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route("/check-out", web::post().to(check_out))
             .route("/current", web::get().to(get_current_locations))
             .route("/today", web::get().to(get_today_records))
+            .route("/all", web::get().to(get_all_records))
             .route("/history/me", web::get().to(get_my_history))
             .route("/search", web::get().to(search_locations)),
     );
@@ -36,6 +38,14 @@ async fn check_in(
         }
     };
 
+    // Detect device type from User-Agent header
+    let user_agent = req
+        .headers()
+        .get("User-Agent")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let device_type = detect_device_type(user_agent);
+
     // Check out from any current location first
     let _ = sqlx::query(
         "UPDATE check_in_records SET check_out_time = datetime('now'), updated_at = datetime('now') WHERE user_id = ? AND check_out_time IS NULL"
@@ -47,12 +57,13 @@ async fn check_in(
     let record_id = Uuid::new_v4().to_string();
 
     let result = sqlx::query(
-        "INSERT INTO check_in_records (id, user_id, location, check_in_time, notes) VALUES (?, ?, ?, datetime('now'), ?)"
+        "INSERT INTO check_in_records (id, user_id, location, check_in_time, notes, device_type) VALUES (?, ?, ?, datetime('now'), ?, ?)"
     )
     .bind(&record_id)
     .bind(&user_id)
     .bind(&body.location)
     .bind(&body.notes)
+    .bind(device_type)
     .execute(pool.get_ref())
     .await;
 
@@ -100,6 +111,7 @@ async fn check_in(
                 "location": body.location,
                 "checkInTime": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
                 "notes": body.notes,
+                "deviceType": device_type,
                 "status": "active"
             }
         }
@@ -126,7 +138,7 @@ async fn check_out(
 
     // Find active check-in
     let active_checkin = sqlx::query_as::<_, CheckInRecord>(
-        "SELECT id, user_id, location, check_in_time, check_out_time, notes, created_at, updated_at FROM check_in_records WHERE user_id = ? AND check_out_time IS NULL"
+        "SELECT id, user_id, location, check_in_time, check_out_time, notes, device_type, created_at, updated_at FROM check_in_records WHERE user_id = ? AND check_out_time IS NULL"
     )
     .bind(&user_id)
     .fetch_optional(pool.get_ref())
@@ -292,7 +304,7 @@ async fn get_my_history(
     };
 
     let mut sql = String::from(
-        "SELECT id, user_id, location, check_in_time, check_out_time, notes, created_at, updated_at FROM check_in_records WHERE user_id = ?",
+        "SELECT id, user_id, location, check_in_time, check_out_time, notes, device_type, created_at, updated_at FROM check_in_records WHERE user_id = ?",
     );
 
     if let Some(ref start_date) = query.start_date {
@@ -326,6 +338,7 @@ async fn get_my_history(
                         "checkInTime": r.check_in_time,
                         "checkOutTime": r.check_out_time,
                         "notes": r.notes,
+                        "deviceType": r.device_type,
                         "status": if r.check_out_time.is_some() { "completed" } else { "active" }
                     })
                 })
@@ -399,11 +412,12 @@ async fn search_locations(
 
 async fn get_today_records(pool: web::Data<SqlitePool>) -> HttpResponse {
     // Get all check-in records for today with user info
-    let result = sqlx::query_as::<_, (String, String, String, String, String, String, String, Option<String>, Option<String>)>(
-        "SELECT c.id, c.user_id, u.first_name, u.last_name, u.department, c.location, c.check_in_time, c.check_out_time, c.notes
+    // Check both UTC and localtime to handle different timezone scenarios
+    let result = sqlx::query_as::<_, (String, String, String, String, String, String, String, Option<String>, Option<String>, Option<String>)>(
+        "SELECT c.id, c.user_id, u.first_name, u.last_name, u.department, c.location, c.check_in_time, c.check_out_time, c.notes, c.device_type
          FROM check_in_records c
          JOIN users u ON c.user_id = u.id
-         WHERE date(c.check_in_time) = date('now', 'localtime')
+         WHERE date(c.check_in_time) = date('now') OR date(c.check_in_time) = date('now', 'localtime')
          ORDER BY c.check_in_time DESC"
     )
     .fetch_all(pool.get_ref())
@@ -424,6 +438,7 @@ async fn get_today_records(pool: web::Data<SqlitePool>) -> HttpResponse {
                         check_in_time,
                         check_out_time,
                         notes,
+                        device_type,
                     )| {
                         serde_json::json!({
                             "id": id,
@@ -434,6 +449,136 @@ async fn get_today_records(pool: web::Data<SqlitePool>) -> HttpResponse {
                             "checkInTime": check_in_time,
                             "checkOutTime": check_out_time,
                             "notes": notes,
+                            "deviceType": device_type,
+                            "status": if check_out_time.is_some() { "completed" } else { "active" }
+                        })
+                    },
+                )
+                .collect();
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": {
+                    "records": records_json,
+                    "total": records_json.len()
+                }
+            }))
+        }
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Database error"
+                }
+            }))
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AllRecordsQuery {
+    location: Option<String>,
+    status: Option<String>,
+    search: Option<String>,
+    limit: Option<i32>,
+}
+
+async fn get_all_records(
+    pool: web::Data<SqlitePool>,
+    query: web::Query<AllRecordsQuery>,
+) -> HttpResponse {
+    // Get all check-in records with user info, with optional filters
+    let mut sql = String::from(
+        "SELECT c.id, c.user_id, u.first_name, u.last_name, u.department, c.location, c.check_in_time, c.check_out_time, c.notes, c.device_type
+         FROM check_in_records c
+         JOIN users u ON c.user_id = u.id
+         WHERE 1=1"
+    );
+
+    // Filter by location
+    if let Some(ref location) = query.location {
+        if !location.is_empty() {
+            sql.push_str(&format!(
+                " AND c.location = '{}'",
+                location.replace("'", "''")
+            ));
+        }
+    }
+
+    // Filter by status (active = no checkout, completed = has checkout)
+    if let Some(ref status) = query.status {
+        match status.as_str() {
+            "active" => sql.push_str(" AND c.check_out_time IS NULL"),
+            "completed" => sql.push_str(" AND c.check_out_time IS NOT NULL"),
+            _ => {}
+        }
+    }
+
+    // Search by user name
+    if let Some(ref search) = query.search {
+        if !search.is_empty() {
+            sql.push_str(&format!(
+                " AND (u.first_name LIKE '%{}%' OR u.last_name LIKE '%{}%' OR c.location LIKE '%{}%')",
+                search.replace("'", "''"),
+                search.replace("'", "''"),
+                search.replace("'", "''")
+            ));
+        }
+    }
+
+    sql.push_str(" ORDER BY c.check_in_time DESC");
+
+    let limit = query.limit.unwrap_or(100);
+    sql.push_str(&format!(" LIMIT {}", limit));
+
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(&sql)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(records) => {
+            let records_json: Vec<serde_json::Value> = records
+                .iter()
+                .map(
+                    |(
+                        id,
+                        user_id,
+                        first_name,
+                        last_name,
+                        department,
+                        location,
+                        check_in_time,
+                        check_out_time,
+                        notes,
+                        device_type,
+                    )| {
+                        serde_json::json!({
+                            "id": id,
+                            "userId": user_id,
+                            "userName": format!("{} {}", first_name, last_name),
+                            "department": department,
+                            "location": location,
+                            "checkInTime": check_in_time,
+                            "checkOutTime": check_out_time,
+                            "notes": notes,
+                            "deviceType": device_type,
                             "status": if check_out_time.is_some() { "completed" } else { "active" }
                         })
                     },

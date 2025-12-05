@@ -425,10 +425,6 @@ export function EquipmentBooking() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">Location:</span> {item.location}
-                  </div>
-
                   {currentlyBooked && currentBooking && (
                     <div className="text-sm">
                       <p className="font-medium text-gray-700 mb-1">Currently Booked By:</p>

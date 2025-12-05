@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, Search, CheckCircle, Loader2, Download } from "lucide-react";
+import { MapPin, Search, CheckCircle, Loader2, Download, Smartphone, Monitor, Users, Clock, TrendingUp } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -16,9 +16,13 @@ interface CheckInRecord {
 
 interface ClockInOutRecord {
   memberName: string;
+  department: string;
   location: string;
   checkIn: string;
   checkOut: string;
+  deviceType: string;
+  status: string;
+  hoursWorked: string;
 }
 
 export function LocationTracker() {
@@ -27,7 +31,10 @@ export function LocationTracker() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showCheckoutConfirmation, setShowCheckoutConfirmation] = useState(false);
   const [searchMember, setSearchMember] = useState("");
-  const [searchDate, setSearchDate] = useState(new Date().toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }));
+  const [filterLocation, setFilterLocation] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [selectedStat, setSelectedStat] = useState<string | null>(null);
+  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentLocation, setCurrentLocation] = useState("");
   const [checkInTime, setCheckInTime] = useState("");
@@ -74,22 +81,8 @@ export function LocationTracker() {
           console.error("Failed to fetch current locations:", err);
         }
 
-        // Fetch today's records (both active and completed - for the Clock In/Out table)
-        try {
-          const todayResponse = await locationsApi.getTodayRecords();
-          if (todayResponse.data?.records) {
-            const records = todayResponse.data.records || [];
-
-            setClockInOutRecords(records.map((l: any) => ({
-              memberName: l.userName || "Unknown",
-              location: l.location || "Unknown",
-              checkIn: formatTime(l.checkInTime || ""),
-              checkOut: formatTime(l.checkOutTime || ""),
-            })));
-          }
-        } catch (err) {
-          console.error("Failed to fetch today's records:", err);
-        }
+        // Fetch ALL records (for the Personnel table with filters)
+        await fetchAllRecords();
       } catch (err) {
         console.error("Failed to fetch locations:", err);
       } finally {
@@ -99,6 +92,58 @@ export function LocationTracker() {
 
     fetchData();
   }, []);
+
+  // Fetch all records with current filters
+  const fetchAllRecords = async () => {
+    try {
+      const params: { location?: string; status?: string; search?: string } = {};
+      if (filterLocation) params.location = filterLocation;
+      if (filterStatus) params.status = filterStatus;
+      if (searchMember) params.search = searchMember;
+
+      const allResponse = await locationsApi.getAllRecords(params);
+      if (allResponse.data?.records) {
+        const records = allResponse.data.records || [];
+
+        // Extract unique locations for the filter dropdown
+        const uniqueLocations = [...new Set(records.map((r: any) => r.location))].filter(Boolean) as string[];
+        setAvailableLocations(uniqueLocations);
+
+        setClockInOutRecords(records.map((l: any) => ({
+          memberName: l.userName || "Unknown",
+          department: l.department || "Unknown",
+          location: l.location || "Unknown",
+          checkIn: formatTime(l.checkInTime || ""),
+          checkOut: formatTime(l.checkOutTime || ""),
+          deviceType: l.deviceType || "desktop",
+          status: l.status || "active",
+          hoursWorked: calculateHours(l.checkInTime, l.checkOutTime),
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to fetch all records:", err);
+    }
+  };
+
+  // Re-fetch when filters change
+  useEffect(() => {
+    if (!loading) {
+      fetchAllRecords();
+    }
+  }, [filterLocation, filterStatus]);
+
+  const calculateHours = (checkInTime: string, checkOutTime?: string): string => {
+    if (!checkInTime) return "0 hrs";
+    try {
+      const checkIn = new Date(checkInTime);
+      const checkOut = checkOutTime ? new Date(checkOutTime) : new Date();
+      const diffMs = checkOut.getTime() - checkIn.getTime();
+      const hours = diffMs / (1000 * 60 * 60);
+      return `${hours.toFixed(1)} hrs`;
+    } catch {
+      return "0 hrs";
+    }
+  };
 
   const formatTime = (timeStr: string): string => {
     if (!timeStr) return "";
@@ -135,17 +180,8 @@ export function LocationTracker() {
           })));
         }
 
-        // Refresh today's records for the Clock In/Out table
-        const todayResponse = await locationsApi.getTodayRecords();
-        if (todayResponse.data?.records) {
-          const records = todayResponse.data.records || [];
-          setClockInOutRecords(records.map((l: any) => ({
-            memberName: l.userName || "Unknown",
-            location: l.location || "Unknown",
-            checkIn: formatTime(l.checkInTime || ""),
-            checkOut: formatTime(l.checkOutTime || ""),
-          })));
-        }
+        // Refresh all records
+        await fetchAllRecords();
       }
     } catch (err) {
       console.error("Failed to check in:", err);
@@ -178,17 +214,8 @@ export function LocationTracker() {
         })));
       }
 
-      // Refresh today's records (user will still appear with check-out time)
-      const todayResponse = await locationsApi.getTodayRecords();
-      if (todayResponse.data?.records) {
-        const records = todayResponse.data.records || [];
-        setClockInOutRecords(records.map((l: any) => ({
-          memberName: l.userName || "Unknown",
-          location: l.location || "Unknown",
-          checkIn: formatTime(l.checkInTime || ""),
-          checkOut: formatTime(l.checkOutTime || ""),
-        })));
-      }
+      // Refresh all records
+      await fetchAllRecords();
     } catch (err) {
       console.error("Failed to check out:", err);
       // Still show checkout for demo purposes
@@ -200,21 +227,67 @@ export function LocationTracker() {
     }
   };
 
-  const filteredRecords = clockInOutRecords.filter(record =>
-    record.memberName.toLowerCase().includes(searchMember.toLowerCase())
-  );
+  // Calculate stats
+  const totalPersonnel = clockInOutRecords.length;
+  const activeCount = clockInOutRecords.filter(r => r.status === 'active').length;
+  const totalHours = clockInOutRecords.reduce((sum, r) => {
+    const hours = parseFloat(r.hoursWorked) || 0;
+    return sum + hours;
+  }, 0);
+  const avgHours = clockInOutRecords.length > 0 ? totalHours / clockInOutRecords.length : 0;
+
+  // Filter records based on selected stat card
+  const getFilteredByStatRecords = () => {
+    let records = clockInOutRecords;
+
+    // Apply stat card filter
+    if (selectedStat === 'active') {
+      records = records.filter(r => r.status === 'active');
+    } else if (selectedStat === 'completed') {
+      records = records.filter(r => r.status === 'completed');
+    }
+    // 'total' and 'hours' show all records
+
+    // Apply search filter
+    return records.filter(record =>
+      record.memberName.toLowerCase().includes(searchMember.toLowerCase()) ||
+      record.location.toLowerCase().includes(searchMember.toLowerCase())
+    );
+  };
+
+  const filteredRecords = getFilteredByStatRecords();
+
+  const handleStatClick = (stat: string) => {
+    if (selectedStat === stat) {
+      setSelectedStat(null); // Toggle off if already selected
+      setFilterStatus("");
+    } else {
+      setSelectedStat(stat);
+      if (stat === 'active') {
+        setFilterStatus("active");
+      } else if (stat === 'completed') {
+        setFilterStatus("");
+      } else {
+        setFilterStatus("");
+      }
+    }
+  };
 
   const handleExportCSV = () => {
     // Create CSV content
-    const headers = ["Member Name", "Location", "Check In", "Check Out"];
+    const headers = ["Personnel", "Department", "Location", "Clock In", "Clock Out", "Hours", "Method", "Status"];
     const csvRows = [
       headers.join(","),
       ...filteredRecords.map(record =>
         [
           `"${record.memberName}"`,
+          `"${record.department}"`,
           `"${record.location}"`,
           `"${record.checkIn}"`,
-          `"${record.checkOut || ''}"`
+          `"${record.checkOut || ''}"`,
+          `"${record.hoursWorked}"`,
+          `"${record.deviceType}"`,
+          `"${record.status}"`
         ].join(",")
       )
     ];
@@ -225,7 +298,7 @@ export function LocationTracker() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `clock-in-out-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `personnel-records-${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -346,83 +419,6 @@ export function LocationTracker() {
                   </CardContent>
                 </Card>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Hi-Fi Prototype Section */}
-      <div className="mt-8">
-
-        {/* Clock In/Out Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Clock In/Out</CardTitle>
-              <Button
-                onClick={handleExportCSV}
-                variant="outline"
-                size="sm"
-                disabled={filteredRecords.length === 0}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Search Inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block mb-2 text-sm">Search</label>
-                <div className="relative">
-                  <Input
-                    placeholder="Search member name"
-                    value={searchMember}
-                    onChange={(e) => setSearchMember(e.target.value)}
-                    className="pr-10"
-                  />
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm">Select Date</label>
-                <div className="relative">
-                  <Input
-                    value={searchDate}
-                    readOnly
-                    className="pr-10"
-                  />
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="border-2 border-black rounded overflow-hidden">
-              {/* Header */}
-              <div className="grid grid-cols-4 border-b-2 border-black bg-gray-50">
-                <div className="p-3 border-r-2 border-black">Member name</div>
-                <div className="p-3 border-r-2 border-black">Location</div>
-                <div className="p-3 border-r-2 border-black">Check In</div>
-                <div className="p-3">Check Out</div>
-              </div>
-
-              {/* Rows */}
-              {filteredRecords.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
-                  No records found
-                </div>
-              ) : (
-                filteredRecords.map((record, index) => (
-                  <div key={index} className="grid grid-cols-4 border-b-2 border-black last:border-b-0 bg-white hover:bg-gray-50 transition-colors">
-                    <div className="p-3 border-r-2 border-black">{record.memberName}</div>
-                    <div className="p-3 border-r-2 border-black">{record.location}</div>
-                    <div className="p-3 border-r-2 border-black">{record.checkIn}</div>
-                    <div className="p-3">{record.checkOut || '-'}</div>
-                  </div>
-                ))
-              )}
             </div>
           </CardContent>
         </Card>

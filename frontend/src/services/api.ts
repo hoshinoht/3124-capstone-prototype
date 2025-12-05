@@ -66,6 +66,7 @@ export interface Project {
   updatedAt?: string;
   memberCount?: number;
   taskCount?: number;
+  currentUserRole?: 'owner' | 'admin' | 'member' | null;
 }
 
 export interface ProjectMember {
@@ -220,7 +221,9 @@ export const tasksApi = {
     department?: string;
     projectId?: string;
     isCompleted?: boolean;
-  }): Promise<{ success: boolean; data: { tasks: Task[]; pagination: { total: number } } }> => {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; data: { tasks: Task[]; pagination: { total: number; limit: number; offset: number } } }> => {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -449,6 +452,24 @@ export const locationsApi = {
 
   getTodayRecords: async (): Promise<{ success: boolean; data: { records: any[]; total: number } }> => {
     return apiRequest('/locations/today');
+  },
+
+  getAllRecords: async (params?: {
+    location?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+  }): Promise<{ success: boolean; data: { records: any[]; total: number } }> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          searchParams.append(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return apiRequest(`/locations/all${query ? `?${query}` : ''}`);
   },
 
   getMyStatus: async (): Promise<{ success: boolean; data: { history: any[] } }> => {

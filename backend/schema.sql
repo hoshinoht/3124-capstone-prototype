@@ -183,7 +183,6 @@ CREATE TABLE IF NOT EXISTS equipment (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     category TEXT NOT NULL,
-    location TEXT NOT NULL,
     status TEXT DEFAULT 'available' CHECK (status IN ('available', 'booked', 'in-use', 'maintenance')),
     serial_number TEXT UNIQUE,
     purchase_date TEXT,
@@ -195,7 +194,6 @@ CREATE TABLE IF NOT EXISTS equipment (
 
 CREATE INDEX IF NOT EXISTS idx_equipment_status ON equipment(status);
 CREATE INDEX IF NOT EXISTS idx_equipment_category ON equipment(category);
-CREATE INDEX IF NOT EXISTS idx_equipment_location ON equipment(location);
 
 CREATE TABLE IF NOT EXISTS bookings (
     id TEXT PRIMARY KEY,
@@ -228,6 +226,7 @@ CREATE TABLE IF NOT EXISTS check_in_records (
     check_in_time TEXT NOT NULL,
     check_out_time TEXT,
     notes TEXT,
+    device_type TEXT DEFAULT 'desktop' CHECK (device_type IN ('desktop', 'mobile')),
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -383,34 +382,257 @@ VALUES (
     1
 );
 
--- Insert sample equipment
-INSERT OR IGNORE INTO equipment (id, name, category, location, status, serial_number)
+-- =====================================================
+-- DEMO DATA FOR PROTOTYPE DEMONSTRATION
+-- =====================================================
+
+-- Additional demo users (password for all: password123)
+INSERT OR IGNORE INTO users (id, email, password_hash, first_name, last_name, department, role, is_active)
 VALUES 
-    ('cf9e6679-7425-40de-944b-e07fc1f90aec', 'Oscilloscope OSC-2000', 'Testing', 'Lab 3', 'available', 'OSC2000-12345'),
-    ('df9e6679-7425-40de-944b-e07fc1f90aed', 'Network Analyzer NA-500', 'Testing', 'Lab 1', 'available', 'NA500-67890'),
-    ('ef9e6679-7425-40de-944b-e07fc1f90aee', 'Power Supply PS-1000', 'Power', 'Lab 2', 'available', 'PS1000-11111');
+    ('550e8400-e29b-41d4-a716-446655440001', 'michael.chen@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Michael', 'Chen', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440002', 'sarah.johnson@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Sarah', 'Johnson', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440003', 'david.park@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'David', 'Park', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440004', 'emily.rodriguez@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Emily', 'Rodriguez', 'IT', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440005', 'james.wilson@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'James', 'Wilson', 'IT', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440006', 'lisa.anderson@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Lisa', 'Anderson', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440007', 'robert.martinez@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Robert', 'Martinez', 'IT', 'Admin', 1),
+    ('550e8400-e29b-41d4-a716-446655440008', 'jennifer.lee@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Jennifer', 'Lee', 'Both', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440009', 'william.taylor@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'William', 'Taylor', 'Engineering', 'Viewer', 1);
+
+-- Demo Projects
+INSERT OR IGNORE INTO projects (id, name, description, status, created_by, created_at)
+VALUES 
+    ('a1234567-89ab-4cde-8001-000000000001', 'Building Automation Upgrade', 'Upgrade the BMS system across all facilities with new HVAC controls and IoT sensors', 'active', '550e8400-e29b-41d4-a716-446655440000', '2025-11-01 09:00:00'),
+    ('a1234567-89ab-4cde-8002-000000000002', 'Network Infrastructure Modernization', 'Replace legacy network equipment and implement SD-WAN across all sites', 'active', '550e8400-e29b-41d4-a716-446655440007', '2025-11-15 10:00:00'),
+    ('a1234567-89ab-4cde-8003-000000000003', 'Energy Efficiency Initiative', 'Implement energy monitoring and optimization across manufacturing facilities', 'active', '550e8400-e29b-41d4-a716-446655440001', '2025-10-01 08:00:00');
+
+-- Project Members
+INSERT OR IGNORE INTO project_members (id, project_id, user_id, role, added_at)
+VALUES 
+    -- Building Automation Upgrade team
+    ('b1234567-89ab-4cde-8001-000000000001', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 'owner', '2025-11-01 09:00:00'),
+    ('b1234567-89ab-4cde-8001-000000000002', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', 'admin', '2025-11-01 09:00:00'),
+    ('b1234567-89ab-4cde-8001-000000000003', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', 'member', '2025-11-02 10:00:00'),
+    ('b1234567-89ab-4cde-8001-000000000004', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440006', 'member', '2025-11-03 11:00:00'),
+    -- Network Infrastructure team
+    ('b1234567-89ab-4cde-8002-000000000001', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440007', 'owner', '2025-11-15 10:00:00'),
+    ('b1234567-89ab-4cde-8002-000000000002', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', 'admin', '2025-11-15 10:00:00'),
+    ('b1234567-89ab-4cde-8002-000000000003', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440005', 'member', '2025-11-16 09:00:00'),
+    -- Energy Efficiency team
+    ('b1234567-89ab-4cde-8003-000000000001', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440001', 'owner', '2025-10-01 08:00:00'),
+    ('b1234567-89ab-4cde-8003-000000000002', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440002', 'admin', '2025-10-01 08:00:00'),
+    ('b1234567-89ab-4cde-8003-000000000003', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440008', 'member', '2025-10-02 09:00:00');
+
+-- Insert sample equipment
+INSERT OR IGNORE INTO equipment (id, name, category, status, serial_number, notes)
+VALUES 
+    ('cf9e6679-7425-40de-944b-e07fc1f90aec', 'Oscilloscope OSC-2000', 'Testing', 'available', 'OSC2000-12345', 'High-precision digital oscilloscope'),
+    ('df9e6679-7425-40de-944b-e07fc1f90aed', 'Network Analyzer NA-500', 'Testing', 'available', 'NA500-67890', 'RF network analyzer 9kHz-6GHz'),
+    ('ef9e6679-7425-40de-944b-e07fc1f90aee', 'Power Supply PS-1000', 'Power', 'available', 'PS1000-11111', 'Programmable DC power supply'),
+    ('c1234567-89ab-4cde-9001-000000000001', 'Thermal Imaging Camera TIC-300', 'Diagnostic', 'available', 'TIC300-22222', 'FLIR thermal camera for electrical inspections'),
+    ('c1234567-89ab-4cde-9002-000000000002', 'Digital Multimeter DMM-PRO', 'Testing', 'available', 'DMM-33333', 'Precision multimeter with data logging'),
+    ('c1234567-89ab-4cde-9003-000000000003', 'Fiber Optic Tester FOT-100', 'Network', 'booked', 'FOT100-44444', 'OTDR for fiber testing'),
+    ('c1234567-89ab-4cde-9004-000000000004', 'Cable Tester CT-2000', 'Network', 'available', 'CT2000-55555', 'Cat5/6/7 cable certifier'),
+    ('c1234567-89ab-4cde-9005-000000000005', 'Spectrum Analyzer SA-600', 'Testing', 'maintenance', 'SA600-66666', 'RF spectrum analyzer - calibration due'),
+    ('c1234567-89ab-4cde-9006-000000000006', 'Air Quality Monitor AQM-50', 'Environmental', 'available', 'AQM50-77777', 'CO2, PM2.5, temperature, humidity monitoring'),
+    ('c1234567-89ab-4cde-9007-000000000007', 'Pressure Calibrator PC-100', 'Calibration', 'available', 'PC100-88888', 'Precision pressure calibrator 0-300 PSI'),
+    ('c1234567-89ab-4cde-9008-000000000008', 'Data Logger DL-8CH', 'Monitoring', 'in-use', 'DL8CH-99999', '8-channel temperature/voltage logger'),
+    ('c1234567-89ab-4cde-9009-000000000009', 'Clamp Meter CM-400', 'Electrical', 'available', 'CM400-10101', 'AC/DC clamp meter up to 400A'),
+    ('c1234567-89ab-4cde-9010-000000000010', 'Vibration Analyzer VA-200', 'Diagnostic', 'available', 'VA200-20202', 'Portable vibration analyzer for motor diagnostics');
+
+-- Equipment Bookings
+INSERT OR IGNORE INTO bookings (id, equipment_id, user_id, department, start_date, end_date, purpose, status)
+VALUES 
+    ('d1234567-89ab-4cde-a001-000000000001', 'c1234567-89ab-4cde-9003-000000000003', '550e8400-e29b-41d4-a716-446655440005', 'IT', '2025-12-02', '2025-12-06', 'Fiber installation in Building B', 'active'),
+    ('d1234567-89ab-4cde-a002-000000000002', 'cf9e6679-7425-40de-944b-e07fc1f90aec', '550e8400-e29b-41d4-a716-446655440001', 'Engineering', '2025-12-05', '2025-12-07', 'PLC signal testing', 'active'),
+    ('d1234567-89ab-4cde-a003-000000000003', 'c1234567-89ab-4cde-9008-000000000008', '550e8400-e29b-41d4-a716-446655440002', 'Engineering', '2025-12-01', '2025-12-15', 'HVAC performance monitoring', 'active'),
+    ('d1234567-89ab-4cde-a004-000000000004', 'c1234567-89ab-4cde-9001-000000000001', '550e8400-e29b-41d4-a716-446655440003', 'Engineering', '2025-12-10', '2025-12-11', 'Electrical panel thermal scan', 'active'),
+    ('d1234567-89ab-4cde-a005-000000000005', 'df9e6679-7425-40de-944b-e07fc1f90aed', '550e8400-e29b-41d4-a716-446655440004', 'IT', '2025-12-08', '2025-12-09', 'Wireless site survey', 'active'),
+    ('d1234567-89ab-4cde-a006-000000000006', 'c1234567-89ab-4cde-9010-000000000010', '550e8400-e29b-41d4-a716-446655440006', 'Engineering', '2025-12-12', '2025-12-13', 'Motor bearing analysis', 'active'),
+    ('d1234567-89ab-4cde-a007-000000000007', 'c1234567-89ab-4cde-9006-000000000006', '550e8400-e29b-41d4-a716-446655440008', 'Both', '2025-12-15', '2025-12-20', 'Indoor air quality assessment', 'active'),
+    -- Completed bookings
+    ('d1234567-89ab-4cde-a008-000000000008', 'c1234567-89ab-4cde-9004-000000000004', '550e8400-e29b-41d4-a716-446655440005', 'IT', '2025-11-25', '2025-11-27', 'New cable installation certification', 'completed'),
+    ('d1234567-89ab-4cde-a009-000000000009', 'c1234567-89ab-4cde-9007-000000000007', '550e8400-e29b-41d4-a716-446655440001', 'Engineering', '2025-11-28', '2025-11-29', 'Pressure transmitter calibration', 'completed');
 
 -- Insert sample glossary categories
 INSERT OR IGNORE INTO glossary_categories (id, name, display_order)
 VALUES 
-    ('5f9e6679-7425-40de-944b-e07fc1f90af5', 'IT & Engineering Common Terms', 1),
-    ('6f9e6679-7425-40de-944b-e07fc1f90af6', 'HVAC Abbreviations', 2),
-    ('7f9e6679-7425-40de-944b-e07fc1f90af7', 'Network Terminology', 3);
+    ('e1234567-89ab-4cde-b001-000000000001', 'IT', 1),
+    ('e1234567-89ab-4cde-b002-000000000002', 'Engineering', 2),
+    ('e1234567-89ab-4cde-b003-000000000003', 'General', 3);
 
--- Insert sample glossary terms
+-- Full Glossary Terms from CSV
+-- IT Terms
 INSERT OR IGNORE INTO glossary_terms (id, acronym, full_name, definition, category_id, created_by, is_approved)
 VALUES 
-    ('4f9e6679-7425-40de-944b-e07fc1f90af4', 'API', 'Application Programming Interface', 'A set of protocols and tools for building software applications', '5f9e6679-7425-40de-944b-e07fc1f90af5', '550e8400-e29b-41d4-a716-446655440000', 1),
-    ('8f9e6679-7425-40de-944b-e07fc1f90af8', 'HVAC', 'Heating, Ventilation, and Air Conditioning', 'System for regulating indoor climate', '6f9e6679-7425-40de-944b-e07fc1f90af6', '550e8400-e29b-41d4-a716-446655440000', 1),
-    ('9f9e6679-7425-40de-944b-e07fc1f90af9', 'DNS', 'Domain Name System', 'Hierarchical naming system for computers and services', '7f9e6679-7425-40de-944b-e07fc1f90af7', '550e8400-e29b-41d4-a716-446655440000', 1);
+    ('f1234567-89ab-4cde-c001-000000000001', 'API', 'Application Programming Interface', 'A set of protocols and tools for building software applications that specify how software components should interact', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000002', 'REST', 'Representational State Transfer', 'An architectural style for designing networked applications using HTTP requests to access and manipulate data', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000003', 'CI/CD', 'Continuous Integration/Continuous Deployment', 'Development practices that automate building, testing, and deploying code changes', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000004', 'JWT', 'JSON Web Token', 'A compact, URL-safe token format used for securely transmitting information between parties as a JSON object', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000005', 'OAuth', 'Open Authorization', 'An open standard for access delegation, commonly used for token-based authentication', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000006', 'DNS', 'Domain Name System', 'The hierarchical naming system that translates human-readable domain names into IP addresses', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000007', 'HTTPS', 'Hypertext Transfer Protocol Secure', 'An encrypted version of HTTP that uses TLS/SSL for secure communication', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000008', 'SQL', 'Structured Query Language', 'A programming language used to manage and manipulate relational databases', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000009', 'NoSQL', 'NoSQL', 'Non-relational database systems designed for distributed data stores with flexible schemas and horizontal scaling', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000010', 'SSH', 'Secure Shell', 'A cryptographic network protocol for secure remote login and command execution over an unsecured network', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000011', 'VPN', 'Virtual Private Network', 'A technology that creates a secure, encrypted connection over a less secure network', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000012', 'IoT', 'Internet of Things', 'A network of physical devices embedded with sensors and software that connect and exchange data', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000013', 'CDN', 'Content Delivery Network', 'A geographically distributed group of servers that work together to provide fast delivery of internet content', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000014', 'CORS', 'Cross-Origin Resource Sharing', 'A security feature that allows or restricts web applications from making requests to different domains', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000015', 'WebSocket', 'WebSocket', 'A communication protocol that provides full-duplex communication channels over a single TCP connection', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000016', 'CRUD', 'Create, Read, Update, Delete', 'The four basic operations for persistent storage in database applications', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000017', 'MFA', 'Multi-Factor Authentication', 'A security system requiring multiple methods of authentication to verify user identity', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000018', 'SDK', 'Software Development Kit', 'A collection of software tools and libraries used to develop applications for specific platforms', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000019', 'IDE', 'Integrated Development Environment', 'A software application providing comprehensive facilities for software development', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c001-000000000020', 'DevOps', 'Development Operations', 'A set of practices combining software development and IT operations to shorten development cycles', 'e1234567-89ab-4cde-b001-000000000001', '550e8400-e29b-41d4-a716-446655440000', 1);
+
+-- Engineering Terms
+INSERT OR IGNORE INTO glossary_terms (id, acronym, full_name, definition, category_id, created_by, is_approved)
+VALUES 
+    ('f1234567-89ab-4cde-c002-000000000001', 'SCADA', 'Supervisory Control and Data Acquisition', 'A control system architecture used for high-level process supervisory management in industrial facilities', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000002', 'PLC', 'Programmable Logic Controller', 'An industrial computer used to automate manufacturing processes and machinery control', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000003', 'HMI', 'Human-Machine Interface', 'A user interface that connects an operator to the controller for industrial equipment', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000004', 'BMS', 'Building Management System', 'A computer-based control system that monitors and manages mechanical and electrical equipment in buildings', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000005', 'HVAC', 'Heating, Ventilation, and Air Conditioning', 'Technology for indoor environmental comfort through thermal regulation and air quality', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000006', 'AHU', 'Air Handling Unit', 'A device used to regulate and circulate air as part of an HVAC system', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000007', 'VAV', 'Variable Air Volume', 'An HVAC system that varies the airflow at a constant temperature to meet zone requirements', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000008', 'FCU', 'Fan Coil Unit', 'A simple device consisting of a heating/cooling coil and a fan used for temperature control', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000009', 'VFD', 'Variable Frequency Drive', 'A motor controller that drives an electric motor by varying the frequency and voltage of its power supply', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000010', 'RTU', 'Remote Terminal Unit', 'A microprocessor-controlled electronic device that interfaces sensors to SCADA systems', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000011', 'DCS', 'Distributed Control System', 'A computerized control system for industrial processes with distributed control elements', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000012', 'P&ID', 'Piping and Instrumentation Diagram', 'A detailed diagram showing process equipment, instrumentation, and piping', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000013', 'CAD', 'Computer-Aided Design', 'Software used to create precision drawings or technical illustrations', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000014', 'BIM', 'Building Information Modeling', 'A digital representation of physical and functional characteristics of a building', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000015', 'MEP', 'Mechanical, Electrical, and Plumbing', 'Core building systems that ensure functionality and occupant comfort', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000016', 'EMS', 'Energy Management System', 'A system of computer-aided tools to monitor, control, and optimize energy consumption', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000017', 'OAT', 'Outside Air Temperature', 'The temperature of the outdoor ambient air measured for HVAC control purposes', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000018', 'SAT', 'Supply Air Temperature', 'The temperature of air leaving an air handling unit or cooling/heating coil', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000019', 'RAT', 'Return Air Temperature', 'The temperature of air returning to the air handling unit from conditioned spaces', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000020', 'MAT', 'Mixed Air Temperature', 'The temperature of the mixture of return air and outside air in an HVAC system', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000021', 'DP', 'Differential Pressure', 'The difference in pressure between two points, used for monitoring filters and airflow', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000022', 'CFM', 'Cubic Feet per Minute', 'A measurement of airflow volume used in HVAC system design and operation', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000023', 'BTU', 'British Thermal Unit', 'A unit of heat energy commonly used to measure heating and cooling capacity', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000024', 'kW', 'Kilowatt', 'A unit of electrical power equal to 1000 watts, used to measure energy consumption', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1),
+    ('f1234567-89ab-4cde-c002-000000000025', 'PPM', 'Parts Per Million', 'A unit of measurement for concentration, commonly used for air quality and water quality monitoring', 'e1234567-89ab-4cde-b002-000000000002', '550e8400-e29b-41d4-a716-446655440000', 1);
 
 -- Insert sample tasks
-INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, assignee_id, created_by, deadline)
+-- Daily tasks from November 25 to December 10, 2024
+-- Projects: proj-0001 (Building Automation), proj-0002 (Network Infrastructure), proj-0003 (Energy Efficiency)
+
+-- November 25
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
 VALUES 
-    ('af9e6679-7425-40de-944b-e07fc1f90b00', 'Server Migration', 'Migrate production servers to new data center', 'urgent', 'in-progress', 0, 'IT', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '+2 days')),
-    ('bf9e6679-7425-40de-944b-e07fc1f90b01', 'Network Security Audit', 'Perform quarterly security audit', 'high', 'pending', 0, 'IT', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '+7 days')),
-    ('cf9e6679-7425-40de-944b-e07fc1f90b02', 'HVAC System Maintenance', 'Routine maintenance on building HVAC', 'medium', 'pending', 0, 'Engineering', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '+14 days')),
-    ('df9e6679-7425-40de-944b-e07fc1f90b03', 'Update Documentation', 'Update API documentation for new endpoints', 'low', 'completed', 1, 'IT', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', date('now', '-1 days'));
+    ('a1b2c3d4-1125-4001-8001-000000000001', 'Review BMS sensor data', 'Analyze temperature sensor readings from Building A', 'medium', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', '2025-11-25', '2025-11-24 09:00:00'),
+    ('a1b2c3d4-1125-4001-8001-000000000002', 'Update firewall rules', 'Add new rules for vendor VPN access', 'high', 'completed', 1, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-11-25', '2025-11-24 10:00:00'),
+    ('a1b2c3d4-1125-4001-8001-000000000003', 'Calibrate pressure sensors', 'Monthly calibration of differential pressure sensors', 'medium', 'completed', 1, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-11-25', '2025-11-24 11:00:00');
+
+-- November 26
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1126-4001-8001-000000000001', 'Network switch replacement', 'Replace aging switch in Server Room B', 'urgent', 'completed', 1, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-11-26', '2025-11-25 08:00:00'),
+    ('a1b2c3d4-1126-4001-8001-000000000002', 'HVAC filter inspection', 'Inspect and document filter conditions in AHU-1 through AHU-4', 'low', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-11-26', '2025-11-25 09:00:00'),
+    ('a1b2c3d4-1126-4001-8001-000000000003', 'Update server documentation', 'Document new server configurations', 'low', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000', '2025-11-26', '2025-11-25 10:00:00'),
+    ('a1b2c3d4-1126-4001-8001-000000000004', 'Test backup generators', 'Monthly backup generator test run', 'high', 'completed', 1, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-11-26', '2025-11-25 11:00:00');
+
+-- November 27
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1127-4001-8001-000000000001', 'Deploy monitoring agents', 'Install monitoring agents on new workstations', 'medium', 'completed', 1, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-11-27', '2025-11-26 09:00:00'),
+    ('a1b2c3d4-1127-4001-8001-000000000002', 'VFD programming update', 'Update VFD parameters for AHU-3 supply fan', 'high', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-11-27', '2025-11-26 10:00:00'),
+    ('a1b2c3d4-1127-4001-8001-000000000003', 'Security patch deployment', 'Deploy November security patches to all servers', 'urgent', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-11-27', '2025-11-26 11:00:00');
+
+-- November 28 (Thanksgiving - lighter workload)
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1128-4001-8001-000000000001', 'Emergency on-call coverage', 'Holiday on-call system monitoring', 'high', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440000', '2025-11-28', '2025-11-27 08:00:00'),
+    ('a1b2c3d4-1128-4001-8001-000000000002', 'Building system check', 'Holiday building automation verification', 'medium', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', '2025-11-28', '2025-11-27 09:00:00');
+
+-- November 29
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1129-4001-8001-000000000001', 'Post-holiday system verification', 'Verify all systems operational after holiday', 'high', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-11-29', '2025-11-28 08:00:00'),
+    ('a1b2c3d4-1129-4001-8001-000000000002', 'Chiller performance review', 'Review chiller efficiency data from the week', 'medium', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-11-29', '2025-11-28 09:00:00'),
+    ('a1b2c3d4-1129-4001-8001-000000000003', 'User access audit', 'Quarterly user access rights review', 'medium', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000', '2025-11-29', '2025-11-28 10:00:00'),
+    ('a1b2c3d4-1129-4001-8001-000000000004', 'Update P&ID drawings', 'Update piping diagrams for recent modifications', 'low', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-11-29', '2025-11-28 11:00:00');
+
+-- November 30
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1130-4001-8001-000000000001', 'Backup verification', 'Verify weekend backup completion', 'high', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-11-30', '2025-11-29 08:00:00'),
+    ('a1b2c3d4-1130-4001-8001-000000000002', 'Energy report generation', 'Generate monthly energy consumption report', 'medium', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-11-30', '2025-11-29 09:00:00'),
+    ('a1b2c3d4-1130-4001-8001-000000000003', 'Review vendor proposals', 'Review proposals for new network equipment', 'medium', 'completed', 1, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440000', '2025-11-30', '2025-11-29 10:00:00');
+
+-- December 1
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1201-4001-8001-000000000001', 'Monthly system maintenance', 'First of month scheduled maintenance window', 'high', 'completed', 1, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-01', '2025-11-30 08:00:00'),
+    ('a1b2c3d4-1201-4001-8001-000000000002', 'Update control setpoints', 'Adjust temperature setpoints for winter operation', 'medium', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-01', '2025-11-30 09:00:00'),
+    ('a1b2c3d4-1201-4001-8001-000000000003', 'SSL certificate renewal', 'Renew SSL certificates expiring this month', 'urgent', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-01', '2025-11-30 10:00:00');
+
+-- December 2
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1202-4001-8001-000000000001', 'Network topology update', 'Update network diagrams with new switches', 'medium', 'completed', 1, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-02', '2025-12-01 09:00:00'),
+    ('a1b2c3d4-1202-4001-8001-000000000002', 'PLC firmware update', 'Update PLC firmware in Substation 2', 'high', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-02', '2025-12-01 10:00:00'),
+    ('a1b2c3d4-1202-4001-8001-000000000003', 'User training session', 'New employee IT orientation', 'low', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000', '2025-12-02', '2025-12-01 11:00:00'),
+    ('a1b2c3d4-1202-4001-8001-000000000004', 'Check valve inspection', 'Inspect check valves in cooling system', 'medium', 'completed', 1, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-02', '2025-12-01 12:00:00');
+
+-- December 3
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1203-4001-8001-000000000001', 'Backup recovery test', 'Test disaster recovery procedures', 'high', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-03', '2025-12-02 09:00:00'),
+    ('a1b2c3d4-1203-4001-8001-000000000002', 'Sensor calibration batch', 'Calibrate flow sensors in Plant B', 'medium', 'completed', 1, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-03', '2025-12-02 10:00:00'),
+    ('a1b2c3d4-1203-4001-8001-000000000003', 'Software license audit', 'Verify all software licenses current', 'medium', 'completed', 1, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000', '2025-12-03', '2025-12-02 11:00:00');
+
+-- December 4
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1204-4001-8001-000000000001', 'SCADA system backup', 'Weekly SCADA configuration backup', 'high', 'in-progress', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-04', '2025-12-03 09:00:00'),
+    ('a1b2c3d4-1204-4001-8001-000000000002', 'Firewall rule review', 'Monthly firewall rule audit', 'high', 'in-progress', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-04', '2025-12-03 10:00:00'),
+    ('a1b2c3d4-1204-4001-8001-000000000003', 'Pump seal replacement', 'Replace worn seals on cooling pump 3', 'urgent', 'in-progress', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-04', '2025-12-03 11:00:00'),
+    ('a1b2c3d4-1204-4001-8001-000000000004', 'VPN configuration', 'Configure VPN for new remote workers', 'medium', 'in-progress', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-04', '2025-12-03 12:00:00');
+
+-- December 5
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1205-4001-8001-000000000001', 'Server patching', 'Apply security patches to production servers', 'urgent', 'pending', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-05', '2025-12-04 09:00:00'),
+    ('a1b2c3d4-1205-4001-8001-000000000002', 'Motor bearing inspection', 'Inspect bearings on exhaust fan motors', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-05', '2025-12-04 10:00:00'),
+    ('a1b2c3d4-1205-4001-8001-000000000003', 'Database optimization', 'Run monthly database maintenance scripts', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-05', '2025-12-04 11:00:00');
+
+-- December 6
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1206-4001-8001-000000000001', 'Control panel inspection', 'Inspect electrical control panels', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-06', '2025-12-05 09:00:00'),
+    ('a1b2c3d4-1206-4001-8001-000000000002', 'Email server maintenance', 'Exchange server maintenance window', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-06', '2025-12-05 10:00:00'),
+    ('a1b2c3d4-1206-4001-8001-000000000003', 'Update HMI graphics', 'Update HMI screens for new equipment', 'low', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-06', '2025-12-05 11:00:00'),
+    ('a1b2c3d4-1206-4001-8001-000000000004', 'Workstation deployment', 'Deploy 5 new workstations to Engineering', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000', '2025-12-06', '2025-12-05 12:00:00');
+
+-- December 7
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1207-4001-8001-000000000001', 'Weekend monitoring check', 'Verify weekend monitoring systems', 'high', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440007', '550e8400-e29b-41d4-a716-446655440007', '2025-12-07', '2025-12-06 08:00:00'),
+    ('a1b2c3d4-1207-4001-8001-000000000002', 'HVAC schedule adjustment', 'Adjust weekend HVAC schedules', 'low', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-07', '2025-12-06 09:00:00');
+
+-- December 8
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1208-4001-8001-000000000001', 'System health check', 'Sunday system health verification', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-08', '2025-12-07 08:00:00'),
+    ('a1b2c3d4-1208-4001-8001-000000000002', 'Building walkthrough', 'Weekend building inspection', 'low', 'pending', 0, 'Engineering', NULL, '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', '2025-12-08', '2025-12-07 09:00:00');
+
+-- December 9
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1209-4001-8001-000000000001', 'Weekly project review', 'Review project status and priorities', 'medium', 'pending', 0, 'Both', NULL, '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000', '2025-12-09', '2025-12-08 09:00:00'),
+    ('a1b2c3d4-1209-4001-8001-000000000002', 'RTU programming update', 'Update RTU configuration for new sensors', 'high', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440001', '2025-12-09', '2025-12-08 10:00:00'),
+    ('a1b2c3d4-1209-4001-8001-000000000003', 'Printer fleet update', 'Update firmware on network printers', 'low', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440007', '2025-12-09', '2025-12-08 11:00:00'),
+    ('a1b2c3d4-1209-4001-8001-000000000004', 'Pipe insulation check', 'Inspect pipe insulation in mechanical room', 'medium', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8003-000000000003', '550e8400-e29b-41d4-a716-446655440006', '550e8400-e29b-41d4-a716-446655440001', '2025-12-09', '2025-12-08 12:00:00');
+
+-- December 10
+INSERT OR IGNORE INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, created_at)
+VALUES 
+    ('a1b2c3d4-1210-4001-8001-000000000001', 'Network performance report', 'Generate monthly network performance metrics', 'medium', 'pending', 0, 'IT', 'a1234567-89ab-4cde-8002-000000000002', '550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440007', '2025-12-10', '2025-12-09 09:00:00'),
+    ('a1b2c3d4-1210-4001-8001-000000000002', 'VFD maintenance', 'Preventive maintenance on VFDs', 'high', 'pending', 0, 'Engineering', 'a1234567-89ab-4cde-8001-000000000001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440001', '2025-12-10', '2025-12-09 10:00:00'),
+    ('a1b2c3d4-1210-4001-8001-000000000003', 'Active Directory cleanup', 'Remove inactive user accounts', 'medium', 'pending', 0, 'IT', NULL, '550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440000', '2025-12-10', '2025-12-09 11:00:00');
 
 -- Insert sample events
 INSERT OR IGNORE INTO events (id, title, description, event_type, event_date, start_time, end_time, location, created_by, department)
@@ -434,3 +656,31 @@ VALUES
     ('1b9e6679-7425-40de-944b-e07fc1f90e00', '550e8400-e29b-41d4-a716-446655440000', 'urgent', 'Urgent Task', 'Server Migration due in 2 hours', 0),
     ('2b9e6679-7425-40de-944b-e07fc1f90e01', '550e8400-e29b-41d4-a716-446655440000', 'info', 'Equipment Available', 'Oscilloscope available tomorrow', 0),
     ('3b9e6679-7425-40de-944b-e07fc1f90e02', '550e8400-e29b-41d4-a716-446655440000', 'meeting', 'Meeting Reminder', 'Team standup in 30 minutes', 0);
+
+-- Insert sample check-in records (Personnel Tracking)
+-- Using date('now') to ensure records appear as "today" for the demo
+-- Normal 9-6 work hours with reasonable check-in/out times
+INSERT OR IGNORE INTO check_in_records (id, user_id, location, check_in_time, check_out_time, notes, device_type)
+VALUES 
+    -- Michael Chen - Field Engineer, checked in at 9:05 AM on mobile, still active
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b01', '550e8400-e29b-41d4-a716-446655440001', 'Client Site - TechCorp', date('now') || ' 09:05:00', NULL, 'On-site support for BMS installation', 'mobile'),
+    -- Sarah Johnson - Senior Engineer, checked in at 8:55 AM on desktop, still active  
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b02', '550e8400-e29b-41d4-a716-446655440002', 'Corporate Headquarters', date('now') || ' 08:55:00', NULL, 'Engineering review meeting', 'desktop'),
+    -- David Park - Field Technician, checked in at 9:15 AM on mobile, still active
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b03', '550e8400-e29b-41d4-a716-446655440003', 'Manufacturing Plant North', date('now') || ' 09:15:00', NULL, 'Preventive maintenance on production line', 'mobile'),
+    -- Emily Rodriguez - Project Manager, worked 9 AM to 6 PM yesterday on desktop
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b04', '550e8400-e29b-41d4-a716-446655440004', 'Client Site - TechCorp', date('now', '-1 day') || ' 09:00:00', date('now', '-1 day') || ' 18:05:00', 'Project kickoff and client meetings', 'desktop'),
+    -- James Wilson - Equipment Specialist, checked in at 9:10 AM on mobile, still active
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b05', '550e8400-e29b-41d4-a716-446655440005', 'Distribution Center', date('now') || ' 09:10:00', NULL, 'Equipment inventory and calibration', 'mobile'),
+    -- Lisa Anderson - Field Engineer, worked 8:50 AM to 5:55 PM yesterday on desktop
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b06', '550e8400-e29b-41d4-a716-446655440006', 'Corporate Headquarters', date('now', '-1 day') || ' 08:50:00', date('now', '-1 day') || ' 17:55:00', 'Morning standup and documentation', 'desktop');
+
+-- Update user_locations table for active check-ins
+INSERT OR REPLACE INTO user_locations (user_id, location, last_check_in, is_checked_in, updated_at)
+VALUES 
+    ('550e8400-e29b-41d4-a716-446655440001', 'Client Site - TechCorp', datetime('now', '-2 hours', '-32 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440002', 'Corporate Headquarters', datetime('now', '-3 hours', '-30 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440003', 'Manufacturing Plant North', datetime('now', '-4 hours', '-15 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440004', 'Client Site - TechCorp', datetime('now', '-10 hours'), 0, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440005', 'Distribution Center', datetime('now', '-3 hours', '-45 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440006', 'Corporate Headquarters', datetime('now', '-5 hours', '-10 minutes'), 0, datetime('now'));
