@@ -595,6 +595,23 @@ export const eventsApi = {
       body: JSON.stringify(event),
     });
   },
+
+  getEventAttendees: async (eventId: string): Promise<{ success: boolean; data: { attendees: any[] } }> => {
+    return apiRequest(`/calendar/events/${eventId}/attendees`);
+  },
+
+  addEventAttendees: async (eventId: string, userIds: string[]): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/calendar/events/${eventId}/attendees`, {
+      method: 'POST',
+      body: JSON.stringify({ user_ids: userIds }),
+    });
+  },
+
+  removeEventAttendee: async (eventId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/calendar/events/${eventId}/attendees/${userId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // Projects API

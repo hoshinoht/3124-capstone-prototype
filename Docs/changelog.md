@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.0] - December 2025
+
+### 🎉 New Features
+
+#### **Dashboard Today's Tasks**
+- **Replaced Quick Links with Today's Tasks**: The dashboard now shows tasks assigned to the user for today
+  - Fetches tasks from `/tasks/my-today` endpoint
+  - Shows task urgency with color-coded badges (urgent, high, medium, low)
+  - Displays project name and department
+  - Shows assignee names
+  - Quick "Done" button to mark tasks as completed
+  - Click to navigate to Tasks tab
+
+#### **Enhanced Delete Project Confirmation**
+- **Dynamic Stats in Delete Modal**: Shows actual counts of items to be deleted
+  - Displays number of team members that will be removed
+  - Displays number of tasks that will be deleted
+  - Loading state while fetching counts
+
+### 🔧 Database Seeding Improvements
+
+#### **Dynamic Date Range**
+- **Automatic Date Calculation**: Seed script now uses current date as reference
+  - Generates tasks for 25 days before and 20 days after today
+  - No more hardcoded date constants needed
+
+#### **User-Specific Seeding (Javier Choo)**
+- **Dedicated Tasks for Javier**: 5 tasks assigned specifically to javier21choo@gmail.com for today
+  - Review system architecture documentation (high)
+  - Update project status report (medium)
+  - Attend daily standup meeting (low)
+  - Fix critical bug in authentication module (urgent)
+  - Code review for team member's PR (medium)
+- **Project Membership**: Javier added to first 2 projects
+  - First project: Owner role
+  - Second project: Member role
+
+### 🎨 UI/UX Improvements
+
+#### **Edit Project Modal**
+- **Improved Modal Sizing**: Modal now uses 70% width with min/max constraints
+  - `w-[70%]` for responsive width
+  - `max-w-4xl` maximum width
+  - `min-w-[500px]` minimum width
+
+---
+
 ## [1.3.0] - December 2025
 
 ### 🎉 New Features

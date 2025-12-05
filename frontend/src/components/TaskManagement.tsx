@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Loader2, FolderKanban, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Loader2, FolderKanban, Users, X, Plus, UserMinus, Info } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,7 +9,7 @@ import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { tasksApi, equipmentApi, projectsApi, Project, TaskAssignee } from "../services/api";
+import { tasksApi, equipmentApi, projectsApi, usersApi, Project, TaskAssignee, User } from "../services/api";
 
 interface Task {
   id: number;
@@ -55,6 +55,12 @@ export function TaskManagement() {
   // Task detail modal state
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+
+  // Assignee management state
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [addingAssignee, setAddingAssignee] = useState(false);
+  const [removingAssigneeId, setRemovingAssigneeId] = useState<string | null>(null);
 
   const [bookings, setBookings] = useState<EquipmentBooking[]>([]);
 
@@ -162,6 +168,16 @@ export function TaskManagement() {
           }
         } catch (err) {
           console.error("Failed to fetch projects:", err);
+        }
+
+        // Fetch all users for assignee selection
+        try {
+          const response = await usersApi.getAll();
+          if (response.data?.users) {
+            setAllUsers(response.data.users);
+          }
+        } catch (err) {
+          console.error("Failed to fetch users:", err);
         }
 
       } catch (err) {
@@ -335,6 +351,66 @@ export function TaskManagement() {
         console.error("Failed to delete task:", err);
         setTasks(originalTasks);
       }
+    }
+  };
+
+  // Add assignee to task
+  const handleAddAssignee = async (taskId: number, userId: string) => {
+    if (!userId) return;
+
+    setAddingAssignee(true);
+    try {
+      await tasksApi.addTaskAssignees(String(taskId), [userId]);
+
+      // Find the user and add to the selected task's assignees
+      const user = allUsers.find(u => u.id === userId);
+      if (user && selectedTask) {
+        const newAssignee: TaskAssignee = {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`,
+        };
+        const updatedTask = {
+          ...selectedTask,
+          assignees: [...(selectedTask.assignees || []), newAssignee],
+        };
+        setSelectedTask(updatedTask);
+
+        // Update the task in the tasks list
+        setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+      }
+
+      setSelectedUserId("");
+    } catch (err) {
+      console.error("Failed to add assignee:", err);
+    } finally {
+      setAddingAssignee(false);
+    }
+  };
+
+  // Remove assignee from task
+  const handleRemoveAssignee = async (taskId: number, userId: string) => {
+    setRemovingAssigneeId(userId);
+    try {
+      await tasksApi.removeTaskAssignee(String(taskId), userId);
+
+      // Remove the assignee from the selected task
+      if (selectedTask) {
+        const updatedTask = {
+          ...selectedTask,
+          assignees: (selectedTask.assignees || []).filter(a => a.id !== userId),
+        };
+        setSelectedTask(updatedTask);
+
+        // Update the task in the tasks list
+        setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+      }
+    } catch (err) {
+      console.error("Failed to remove assignee:", err);
+    } finally {
+      setRemovingAssigneeId(null);
     }
   };
 
@@ -983,6 +1059,21 @@ export function TaskManagement() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {/* Info banner when project is selected */}
+                    {newTask.projectId && newTask.projectId !== "none" && (() => {
+                      const selectedProject = projects.find(p => p.id === newTask.projectId);
+                      if (selectedProject && selectedProject.memberCount && selectedProject.memberCount > 0) {
+                        return (
+                          <div className="mt-2 flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-blue-700">
+                              <span className="font-medium">{selectedProject.memberCount}</span> project member{selectedProject.memberCount !== 1 ? 's' : ''} will be automatically assigned to this {newTask.taskType}.
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   <Button
@@ -1180,28 +1271,72 @@ export function TaskManagement() {
                     {selectedTask.assignees.map((assignee, index) => (
                       <div
                         key={assignee.id || index}
-                        className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg"
+                        className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg"
                       >
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-blue-700">
-                            {(assignee.firstName?.[0] || assignee.name?.[0] || '?').toUpperCase()}
-                            {(assignee.lastName?.[0] || assignee.name?.split(' ')[1]?.[0] || '').toUpperCase()}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-blue-700">
+                              {(assignee.firstName?.[0] || assignee.name?.[0] || '?').toUpperCase()}
+                              {(assignee.lastName?.[0] || assignee.name?.split(' ')[1]?.[0] || '').toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {assignee.name || `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() || 'Unknown'}
+                            </p>
+                            {assignee.email && (
+                              <p className="text-xs text-gray-500">{assignee.email}</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {assignee.name || `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() || 'Unknown'}
-                          </p>
-                          {assignee.email && (
-                            <p className="text-xs text-gray-500">{assignee.email}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRemoveAssignee(selectedTask.id, assignee.id)}
+                          disabled={removingAssigneeId === assignee.id}
+                        >
+                          {removingAssigneeId === assignee.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <UserMinus className="w-4 h-4" />
                           )}
-                        </div>
+                        </Button>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 italic">No assignees</p>
                 )}
+
+                {/* Add Assignee */}
+                <div className="mt-3 flex gap-2">
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select a user to assign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allUsers
+                        .filter(user => !selectedTask.assignees?.some(a => a.id === user.id))
+                        .map(user => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.firstName} {user.lastName}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAddAssignee(selectedTask.id, selectedUserId)}
+                    disabled={!selectedUserId || addingAssignee}
+                  >
+                    {addingAssignee ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Actions */}

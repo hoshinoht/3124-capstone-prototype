@@ -4,6 +4,11 @@ use uuid::Uuid;
 
 use crate::models::events::{CreateEventRequest, Event, GetEventsQuery, UpdateEventRequest};
 
+#[derive(serde::Deserialize)]
+struct AddAttendeesRequest {
+    user_ids: Vec<String>,
+}
+
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/calendar")
@@ -14,6 +19,14 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route(
                 "/events/{event_id}/attendees",
                 web::get().to(get_event_attendees),
+            )
+            .route(
+                "/events/{event_id}/attendees",
+                web::post().to(add_event_attendees),
+            )
+            .route(
+                "/events/{event_id}/attendees/{user_id}",
+                web::delete().to(remove_event_attendee),
             ),
     );
 }
@@ -362,6 +375,107 @@ async fn get_event_attendees(pool: web::Data<SqlitePool>, path: web::Path<String
                 "error": {
                     "code": "INTERNAL_ERROR",
                     "message": "Database error"
+                }
+            }))
+        }
+    }
+}
+
+async fn add_event_attendees(
+    pool: web::Data<SqlitePool>,
+    path: web::Path<String>,
+    body: web::Json<AddAttendeesRequest>,
+) -> HttpResponse {
+    let event_id = path.into_inner();
+
+    // Verify event exists
+    let event_exists = sqlx::query_scalar::<_, i32>("SELECT 1 FROM events WHERE id = ?")
+        .bind(&event_id)
+        .fetch_optional(pool.get_ref())
+        .await;
+
+    match event_exists {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": "Event not found"
+                }
+            }));
+        }
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Database error"
+                }
+            }));
+        }
+    }
+
+    // Add each user as an attendee
+    for user_id in &body.user_ids {
+        let attendee_record_id = Uuid::new_v4().to_string();
+        let result = sqlx::query(
+            "INSERT OR IGNORE INTO event_attendees (id, event_id, user_id) VALUES (?, ?, ?)",
+        )
+        .bind(&attendee_record_id)
+        .bind(&event_id)
+        .bind(user_id)
+        .execute(pool.get_ref())
+        .await;
+
+        if let Err(e) = result {
+            eprintln!("Failed to add attendee: {:?}", e);
+        }
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Attendees added successfully"
+    }))
+}
+
+async fn remove_event_attendee(
+    pool: web::Data<SqlitePool>,
+    path: web::Path<(String, String)>,
+) -> HttpResponse {
+    let (event_id, user_id) = path.into_inner();
+
+    let result = sqlx::query("DELETE FROM event_attendees WHERE event_id = ? AND user_id = ?")
+        .bind(&event_id)
+        .bind(&user_id)
+        .execute(pool.get_ref())
+        .await;
+
+    match result {
+        Ok(r) => {
+            if r.rows_affected() == 0 {
+                HttpResponse::NotFound().json(serde_json::json!({
+                    "success": false,
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Attendee not found"
+                    }
+                }))
+            } else {
+                HttpResponse::Ok().json(serde_json::json!({
+                    "success": true,
+                    "message": "Attendee removed successfully"
+                }))
+            }
+        }
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to remove attendee"
                 }
             }))
         }

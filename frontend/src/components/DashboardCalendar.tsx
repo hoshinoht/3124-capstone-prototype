@@ -11,8 +11,18 @@ import {
   subMonths,
   isToday as checkIsToday
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Video, Package, FileText, Loader2, Calendar } from "lucide-react";
-import { eventsApi } from "../services/api";
+import { ChevronLeft, ChevronRight, Video, Package, FileText, Loader2, Calendar, Plus, UserMinus, Users } from "lucide-react";
+import { eventsApi, usersApi, User } from "../services/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+
+interface EventAttendee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 interface CalendarEvent {
   id: string;
@@ -21,6 +31,7 @@ interface CalendarEvent {
   description: string;
   type: "deadline" | "meeting" | "delivery";
   date: Date;
+  attendees?: EventAttendee[];
 }
 
 export function DashboardCalendar() {
@@ -29,6 +40,30 @@ export function DashboardCalendar() {
   const [currentMonth, setCurrentMonth] = useState<Date>(today);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+
+  // Event detail modal state
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [addingAttendee, setAddingAttendee] = useState(false);
+  const [removingAttendeeId, setRemovingAttendeeId] = useState<string | null>(null);
+  const [loadingAttendees, setLoadingAttendees] = useState(false);
+
+  // Fetch users on mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await usersApi.getAll();
+        if (response.data?.users) {
+          setAllUsers(response.data.users);
+        }
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   // Fetch events when month changes
   useEffect(() => {
@@ -112,6 +147,91 @@ export function DashboardCalendar() {
         return <FileText className="w-4 h-4 text-red-600" />;
       default:
         return <Calendar className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
+  // Open event detail modal and fetch attendees
+  const handleEventClick = async (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setIsEventModalOpen(true);
+    setLoadingAttendees(true);
+
+    try {
+      const response = await eventsApi.getEventAttendees(event.id);
+      if (response.data?.attendees) {
+        setSelectedEvent({
+          ...event,
+          attendees: response.data.attendees.map((a: any) => ({
+            id: a.id,
+            firstName: a.firstName,
+            lastName: a.lastName,
+            email: a.email,
+          })),
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch attendees:", err);
+    } finally {
+      setLoadingAttendees(false);
+    }
+  };
+
+  // Add attendee to event
+  const handleAddAttendee = async (eventId: string, userId: string) => {
+    if (!userId) return;
+
+    setAddingAttendee(true);
+    try {
+      await eventsApi.addEventAttendees(eventId, [userId]);
+
+      // Find the user and add to the selected event's attendees
+      const user = allUsers.find(u => u.id === userId);
+      if (user && selectedEvent) {
+        const newAttendee: EventAttendee = {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        };
+        const updatedEvent = {
+          ...selectedEvent,
+          attendees: [...(selectedEvent.attendees || []), newAttendee],
+        };
+        setSelectedEvent(updatedEvent);
+
+        // Update the event in the events list
+        setEvents(events.map(e => e.id === eventId ? updatedEvent : e));
+      }
+
+      setSelectedUserId("");
+    } catch (err) {
+      console.error("Failed to add attendee:", err);
+    } finally {
+      setAddingAttendee(false);
+    }
+  };
+
+  // Remove attendee from event
+  const handleRemoveAttendee = async (eventId: string, userId: string) => {
+    setRemovingAttendeeId(userId);
+    try {
+      await eventsApi.removeEventAttendee(eventId, userId);
+
+      // Remove the attendee from the selected event
+      if (selectedEvent) {
+        const updatedEvent = {
+          ...selectedEvent,
+          attendees: (selectedEvent.attendees || []).filter(a => a.id !== userId),
+        };
+        setSelectedEvent(updatedEvent);
+
+        // Update the event in the events list
+        setEvents(events.map(e => e.id === eventId ? updatedEvent : e));
+      }
+    } catch (err) {
+      console.error("Failed to remove attendee:", err);
+    } finally {
+      setRemovingAttendeeId(null);
     }
   };
 
@@ -252,7 +372,8 @@ export function DashboardCalendar() {
                   selectedDateEvents.map((event) => (
                     <div
                       key={event.id}
-                      className={`grid grid-cols-3 border-b border-gray-200 last:border-b-0 ${getEventBackgroundColor(event.type)}`}
+                      onClick={() => handleEventClick(event)}
+                      className={`grid grid-cols-3 border-b border-gray-200 last:border-b-0 cursor-pointer hover:opacity-80 transition-opacity ${getEventBackgroundColor(event.type)}`}
                     >
                       <div className="p-3 border-r border-gray-200 text-sm font-medium">{event.time}</div>
                       <div className="p-3 border-r border-gray-200 flex items-center gap-2 text-sm">
@@ -284,6 +405,143 @@ export function DashboardCalendar() {
           )}
         </div>
       </div>
+
+      {/* Event Detail Modal */}
+      <Dialog open={isEventModalOpen} onOpenChange={setIsEventModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedEvent && getEventIcon(selectedEvent.type)}
+              {selectedEvent?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Event Details
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEvent && (
+            <div className="space-y-4 mt-4">
+              {/* Event Type & Time */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`px-2 py-1 text-xs font-medium rounded capitalize ${selectedEvent.type === 'meeting' ? 'bg-green-100 text-green-700' :
+                    selectedEvent.type === 'deadline' ? 'bg-red-100 text-red-700' :
+                      selectedEvent.type === 'delivery' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                  }`}>
+                  {selectedEvent.type}
+                </span>
+                <span className="text-sm text-gray-600">
+                  {selectedEvent.time} • {format(selectedEvent.date, "MMMM d, yyyy")}
+                </span>
+              </div>
+
+              {/* Description */}
+              {selectedEvent.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Description</h4>
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    {selectedEvent.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Attendees */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Attendees
+                </h4>
+
+                {loadingAttendees ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  </div>
+                ) : selectedEvent.attendees && selectedEvent.attendees.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedEvent.attendees.map((attendee, index) => (
+                      <div
+                        key={attendee.id || index}
+                        className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-blue-700">
+                              {attendee.firstName?.[0]?.toUpperCase() || '?'}
+                              {attendee.lastName?.[0]?.toUpperCase() || ''}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {`${attendee.firstName || ''} ${attendee.lastName || ''}`.trim() || 'Unknown'}
+                            </p>
+                            {attendee.email && (
+                              <p className="text-xs text-gray-500">{attendee.email}</p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRemoveAttendee(selectedEvent.id, attendee.id)}
+                          disabled={removingAttendeeId === attendee.id}
+                        >
+                          {removingAttendeeId === attendee.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <UserMinus className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No attendees</p>
+                )}
+
+                {/* Add Attendee */}
+                <div className="mt-3 flex gap-2">
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select a user to add" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allUsers
+                        .filter(user => !selectedEvent.attendees?.some(a => a.id === user.id))
+                        .map(user => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.firstName} {user.lastName}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAddAttendee(selectedEvent.id, selectedUserId)}
+                    disabled={!selectedUserId || addingAttendee}
+                  >
+                    {addingAttendee ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-end pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEventModalOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -119,9 +119,9 @@ async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>
             ) in tasks
             {
                 // Fetch assignees for this task
-                let assignees_result = sqlx::query_as::<_, (String, String, String)>(
+                let assignees_result = sqlx::query_as::<_, (String, String, String, String)>(
                     r#"
-                    SELECT u.id, u.first_name, u.last_name
+                    SELECT u.id, u.first_name, u.last_name, u.email
                     FROM task_assignees ta
                     JOIN users u ON ta.user_id = u.id
                     WHERE ta.task_id = ?
@@ -134,11 +134,12 @@ async fn get_tasks(pool: web::Data<SqlitePool>, query: web::Query<GetTasksQuery>
                 let assignees: Vec<serde_json::Value> = match assignees_result {
                     Ok(a) => a
                         .iter()
-                        .map(|(uid, first, last)| {
+                        .map(|(uid, first, last, email)| {
                             serde_json::json!({
                                 "id": uid,
                                 "firstName": first,
                                 "lastName": last,
+                                "email": email,
                                 "name": format!("{} {}", first, last)
                             })
                         })
@@ -770,9 +771,9 @@ async fn get_my_tasks_today(pool: web::Data<SqlitePool>, req: HttpRequest) -> Ht
             ) in tasks
             {
                 // Get assignees for this task
-                let assignees_result = sqlx::query_as::<_, (String, String, String)>(
+                let assignees_result = sqlx::query_as::<_, (String, String, String, String)>(
                     r#"
-                    SELECT u.id, u.first_name, u.last_name
+                    SELECT u.id, u.first_name, u.last_name, u.email
                     FROM task_assignees ta
                     JOIN users u ON ta.user_id = u.id
                     WHERE ta.task_id = ?
@@ -785,11 +786,12 @@ async fn get_my_tasks_today(pool: web::Data<SqlitePool>, req: HttpRequest) -> Ht
                 let assignees: Vec<serde_json::Value> = match assignees_result {
                     Ok(a) => a
                         .iter()
-                        .map(|(uid, first, last)| {
+                        .map(|(uid, first, last, email)| {
                             serde_json::json!({
                                 "id": uid,
                                 "firstName": first,
                                 "lastName": last,
+                                "email": email,
                                 "name": format!("{} {}", first, last)
                             })
                         })
