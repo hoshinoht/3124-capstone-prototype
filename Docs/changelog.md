@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.2] - December 2025
+
+### 🔧 Bug Fixes
+
+#### **Task Assignee Email Display**
+- **Fixed Missing Emails**: Task assignees now display email addresses
+  - Updated `get_all_tasks` endpoint to include email in assignee data
+  - Updated `get_my_tasks` endpoint to include email in assignee data
+  - Consistent with manually added assignees
+
+---
+
+## [1.4.1] - December 2025
+
+### 🎉 New Features
+
+#### **Task Assignee Management**
+- **Add/Remove Assignees from Tasks**: Full UI for managing task assignees
+  - User selection dropdown in task detail modal
+  - Add button to assign users to tasks
+  - Remove button (with loading state) next to each assignee
+  - Real-time updates without page refresh
+
+#### **Event Attendee Management**
+- **Add/Remove Attendees from Events**: Full UI for managing event attendees
+  - Click on calendar events to open detail modal
+  - View current attendees with avatars
+  - Add new attendees via user dropdown
+  - Remove attendees with confirmation
+  - Backend routes: `POST /calendar/events/{id}/attendees`, `DELETE /calendar/events/{id}/attendees/{user_id}`
+
+#### **Project Member Info Banner**
+- **Automatic Assignment Notification**: Info banner when creating tasks with a project
+  - Shows number of project members that will be assigned
+  - Dynamically updates based on selected project
+  - Blue info styling with icon
+
+### 🔧 Backend Improvements
+
+#### **Event Attendee API**
+- **New Endpoints**: Added routes for managing event attendees
+  - `POST /calendar/events/{event_id}/attendees` - Add attendees to event
+  - `DELETE /calendar/events/{event_id}/attendees/{user_id}` - Remove attendee from event
+  - `GET /calendar/events/{event_id}/attendees` - Get event attendees (existing)
+
+---
+
 ## [1.4.0] - December 2025
 
 ### 🎉 New Features
