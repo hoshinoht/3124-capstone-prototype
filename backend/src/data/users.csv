@@ -1,0 +1,11 @@
+email,password,first_name,last_name,department,role,is_active
+michael.chen@company.com,password123,Michael,Chen,Engineering,Member,1
+sarah.johnson@company.com,password123,Sarah,Johnson,Engineering,Member,1
+david.park@company.com,password123,David,Park,Engineering,Member,1
+emily.rodriguez@company.com,password123,Emily,Rodriguez,IT,Member,1
+james.wilson@company.com,password123,James,Wilson,IT,Member,1
+lisa.anderson@company.com,password123,Lisa,Anderson,Engineering,Member,1
+robert.martinez@company.com,admin123,Robert,Martinez,IT,Admin,1
+jennifer.lee@company.com,password123,Jennifer,Lee,Both,Member,1
+william.taylor@company.com,password123,William,Taylor,Engineering,Viewer,1
+javier21choo@gmail.com,javier21,Javier,Choo,Engineering,Member,1

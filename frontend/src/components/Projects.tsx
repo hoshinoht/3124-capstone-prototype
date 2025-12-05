@@ -329,8 +329,7 @@ export function Projects() {
             <div className="mb-4">
               <h2 className="text-lg mb-1">Your Projects</h2>
               <p className="text-sm text-gray-600">
-                {projects.length} project{projects.length !== 1 ? "s" : ""} you
-                are a member of
+                {projects.length} project{projects.length !== 1 ? "s" : ""} currently available
               </p>
             </div>
 

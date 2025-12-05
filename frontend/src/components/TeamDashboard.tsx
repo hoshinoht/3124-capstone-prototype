@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, Users, Target, Video, ExternalLink, Clock, Loader2, AlertTriangle, ArrowLeft, Search, Download, MapPin, Smartphone, CheckCircle, Circle, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, Users, Target, Video, ExternalLink, Clock, Loader2, AlertTriangle, ArrowLeft, Search, Download, MapPin, Smartphone, CheckCircle, Circle, ChevronLeft, ChevronRight, ListTodo, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -20,21 +20,27 @@ interface DashboardStats {
 }
 
 interface Meeting {
-  id: number;
+  id: string;
   title: string;
   host: string;
   date: string;
   duration: string;
   participants: number;
   status: string;
+  type: 'task' | 'event';  // To distinguish source
 }
 
-interface QuickLink {
-  id: number;
+interface TodayTask {
+  id: string;
   title: string;
-  subtitle: string;
-  host?: string;
-  status?: string;
+  description?: string;
+  urgency: string;
+  status: string;
+  department: string;
+  deadline: string;
+  projectId?: string;
+  projectName?: string;
+  assignees?: Array<{ id: string; firstName: string; lastName: string; name: string }>;
 }
 
 type DetailView = "projects" | "members" | "tasks" | "meetings" | null;
@@ -54,7 +60,8 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
     urgentTasks: 0,
   });
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+  const [todayTasks, setTodayTasks] = useState<TodayTask[]>([]);
+  const [todayTasksLoading, setTodayTasksLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,25 +86,43 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
         if (response.data?.stats) {
           setStats(response.data.stats);
         }
-        if (response.data?.recentMeetings) {
-          setMeetings(response.data.recentMeetings.map((m: any) => ({
-            id: m.id,
-            title: m.title,
-            host: m.host || "Unknown",
-            date: m.date || "",
-            duration: m.duration || "1 hour",
-            participants: m.participants || 0,
-            status: m.status || "Upcoming",
-          })));
-        }
-        if (response.data?.quickLinks) {
-          setQuickLinks(response.data.quickLinks.map((l: any) => ({
-            id: l.id,
-            title: l.title,
-            subtitle: l.subtitle || l.schedule || l.description || "",
-            host: l.host,
-            status: l.status,
-          })));
+
+        // Fetch today's tasks separately
+        try {
+          const tasksResponse = await tasksApi.getMyTodayTasks();
+          if (tasksResponse.data?.tasks) {
+            const allTasks = tasksResponse.data.tasks;
+            setTodayTasks(allTasks);
+            
+            // Filter tasks that are meetings (contain "meeting" or "standup" in title)
+            const meetingTasks = allTasks.filter((task: TodayTask) => {
+              const titleLower = task.title.toLowerCase();
+              return titleLower.includes('meeting') || 
+                     titleLower.includes('standup') || 
+                     titleLower.includes('sync') ||
+                     titleLower.includes('review') ||
+                     titleLower.includes('session');
+            });
+            
+            // Convert meeting tasks to Meeting format
+            const taskMeetings: Meeting[] = meetingTasks.map((task: TodayTask) => ({
+              id: task.id,
+              title: task.title,
+              host: task.assignees?.[0]?.name || "You",
+              date: task.deadline,
+              duration: "1 hour",
+              participants: task.assignees?.length || 1,
+              status: task.status === 'completed' ? 'Completed' : 
+                      task.status === 'in-progress' ? 'In Progress' : 'Upcoming',
+              type: 'task' as const,
+            }));
+            
+            setMeetings(taskMeetings);
+          }
+        } catch (taskErr) {
+          console.error("Failed to fetch today's tasks:", taskErr);
+        } finally {
+          setTodayTasksLoading(false);
         }
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -250,12 +275,6 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
       default:
         return "bg-gray-100 text-gray-700";
     }
-  };
-
-  const getQuickLinkBadgeColor = (status?: string) => {
-    if (!status) return "";
-    if (status.toLowerCase() === "pinned") return "bg-gray-900 text-white";
-    return "bg-gray-100 text-gray-700";
   };
 
   const getAvatarColor = (name?: string) => {
@@ -730,8 +749,8 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-6">
-        {/* Recent Meetings */}
+      <div className="grid grid-cols-2 lg:grid-cols-[1fr,400px] gap-6">
+
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -787,52 +806,97 @@ export function TeamDashboard({ onNavigate }: TeamDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Quick Links */}
+        {/* Today's Tasks */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Quick Links</CardTitle>
-                <CardDescription>One-click access to important resources</CardDescription>
+                <CardTitle>Today's Tasks</CardTitle>
+                <CardDescription>Your assigned tasks for today</CardDescription>
               </div>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => onNavigate?.("tasks")}>
                 <ExternalLink className="w-4 h-4" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            {quickLinks.length === 0 ? (
+            {todayTasksLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : todayTasks.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                <ExternalLink className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No quick links available</p>
+                <ListTodo className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No tasks for today</p>
+                <p className="text-sm text-gray-400 mt-1">All caught up! Check back later.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {quickLinks.map((link) => (
+                {todayTasks.map((task) => (
                   <div
-                    key={link.id}
-                    className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors cursor-pointer"
+                    key={task.id}
+                    className={`flex items-start gap-3 p-3 border rounded-lg hover:border-gray-300 transition-colors cursor-pointer ${task.urgency === 'urgent' ? 'border-red-300 bg-red-50' :
+                      task.urgency === 'high' ? 'border-orange-300 bg-orange-50' :
+                        task.urgency === 'medium' ? 'border-yellow-300 bg-yellow-50' :
+                          'border-gray-200'
+                      }`}
+                    onClick={() => onNavigate?.("tasks")}
                   >
-                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Video className="w-4 h-4 text-gray-600" />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${task.urgency === 'urgent' ? 'bg-red-100' :
+                      task.urgency === 'high' ? 'bg-orange-100' :
+                        task.urgency === 'medium' ? 'bg-yellow-100' :
+                          'bg-blue-100'
+                      }`}>
+                      {task.urgency === 'urgent' ? (
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <Clock className={`w-4 h-4 ${task.urgency === 'high' ? 'text-orange-600' :
+                          task.urgency === 'medium' ? 'text-yellow-600' :
+                            'text-blue-600'
+                          }`} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-0.5">
-                        <h4 className="text-sm text-gray-900">{link.title}</h4>
-                        {link.status && (
-                          <Badge className={getQuickLinkBadgeColor(link.status)} variant="secondary">
-                            {link.status}
-                          </Badge>
-                        )}
+                        <h4 className="text-sm text-gray-900 truncate">{task.title}</h4>
+                        <Badge className={
+                          task.urgency === 'urgent' ? 'bg-red-100 text-red-700' :
+                            task.urgency === 'high' ? 'bg-orange-100 text-orange-700' :
+                              task.urgency === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-blue-100 text-blue-700'
+                        } variant="secondary">
+                          {task.urgency}
+                        </Badge>
                       </div>
-                      <p className="text-xs text-gray-600">{link.subtitle}</p>
-                      {link.host && (
-                        <p className="text-xs text-gray-500 mt-1">Host: {link.host}</p>
+                      <p className="text-xs text-gray-600">
+                        {task.projectName && `${task.projectName} • `}
+                        {task.department}
+                      </p>
+                      {task.assignees && task.assignees.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {task.assignees.length <= 2
+                            ? task.assignees.map(a => a.firstName).join(', ')
+                            : `${task.assignees[0].firstName}, +${task.assignees.length - 1} more`
+                          }
+                        </p>
                       )}
                     </div>
-                    <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                      Open
-                      <ExternalLink className="w-3 h-3" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          await tasksApi.updateStatus(task.id, 'completed');
+                          setTodayTasks(todayTasks.filter(t => t.id !== task.id));
+                        } catch (err) {
+                          console.error("Failed to complete task:", err);
+                        }
+                      }}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Done
                     </Button>
                   </div>
                 ))}

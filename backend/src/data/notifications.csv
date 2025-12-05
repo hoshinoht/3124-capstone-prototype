@@ -1,0 +1,4 @@
+type,title,message,is_read
+urgent,Urgent Task,Server Migration due in 2 hours,0
+info,Equipment Available,Oscilloscope available tomorrow,0
+meeting,Meeting Reminder,Team standup in 30 minutes,0

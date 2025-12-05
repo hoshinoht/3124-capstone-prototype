@@ -1,0 +1,4 @@
+name,description,status,created_by_email
+Building Automation Upgrade,"Upgrade the BMS system across all facilities with new HVAC controls and IoT sensors",active,550e8400-e29b-41d4-a716-446655440000
+Network Infrastructure Modernization,"Replace legacy network equipment and implement SD-WAN across all sites",active,robert.martinez@company.com
+Energy Efficiency Initiative,"Implement energy monitoring and optimization across manufacturing facilities",active,michael.chen@company.com

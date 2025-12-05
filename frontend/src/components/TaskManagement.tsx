@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Loader2, FolderKanban } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Trash2, Bell, Calendar as CalendarIcon, Loader2, FolderKanban, Users, X } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
-import { tasksApi, equipmentApi, projectsApi, Project } from "../services/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
+import { tasksApi, equipmentApi, projectsApi, Project, TaskAssignee } from "../services/api";
 
 interface Task {
   id: number;
@@ -20,6 +21,7 @@ interface Task {
   projectId?: string;
   projectName?: string;
   taskType?: "task" | "meeting";
+  assignees?: TaskAssignee[];
 }
 
 interface EquipmentBooking {
@@ -49,6 +51,10 @@ export function TaskManagement() {
   const [completedTasksPage, setCompletedTasksPage] = useState(1);
   const [completedTasksTotal, setCompletedTasksTotal] = useState(0);
   const [loadingCompletedTasks, setLoadingCompletedTasks] = useState(false);
+
+  // Task detail modal state
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
   const [bookings, setBookings] = useState<EquipmentBooking[]>([]);
 
@@ -92,6 +98,7 @@ export function TaskManagement() {
           projectId: t.projectId || t.project_id,
           projectName: t.projectName || t.project_name,
           taskType: t.task_type || t.taskType || "task",
+          assignees: t.assignees || [],
         })));
         setCompletedTasksTotal(response.data.pagination?.total || 0);
       }
@@ -122,6 +129,7 @@ export function TaskManagement() {
               projectId: t.projectId || t.project_id,
               projectName: t.projectName || t.project_name,
               taskType: t.task_type || t.taskType || "task",
+              assignees: t.assignees || [],
             })));
           }
         } catch (err) {
@@ -461,6 +469,19 @@ export function TaskManagement() {
     }
   };
 
+  const formatAssignees = (assignees?: TaskAssignee[]) => {
+    if (!assignees || assignees.length === 0) return null;
+    if (assignees.length <= 2) {
+      return assignees.map(a => a.firstName || a.name?.split(' ')[0] || 'Unknown').join(', ');
+    }
+    return `${assignees[0].firstName || assignees[0].name?.split(' ')[0] || 'Unknown'} +${assignees.length - 1}`;
+  };
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsTaskModalOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -483,7 +504,7 @@ export function TaskManagement() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px,1fr] gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-[300px,1fr] gap-6">
         {/* Calendar Section */}
         <Card className="p-6 h-fit">
           <div className="mb-4">
@@ -609,8 +630,8 @@ export function TaskManagement() {
                   <button
                     onClick={() => { setShowCompletedTasks(false); setShowAllTasks(false); }}
                     className={`px-3 py-1.5 text-sm rounded-md transition-colors ${!showCompletedTasks && !showAllTasks
-                        ? "bg-gray-900 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                   >
                     By Date
@@ -618,8 +639,8 @@ export function TaskManagement() {
                   <button
                     onClick={() => { setShowCompletedTasks(false); setShowAllTasks(true); }}
                     className={`px-3 py-1.5 text-sm rounded-md transition-colors ${!showCompletedTasks && showAllTasks
-                        ? "bg-gray-900 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                   >
                     All Active
@@ -627,8 +648,8 @@ export function TaskManagement() {
                   <button
                     onClick={() => { setShowCompletedTasks(true); setShowAllTasks(false); setCompletedTasksPage(1); }}
                     className={`px-3 py-1.5 text-sm rounded-md transition-colors ${showCompletedTasks
-                        ? "bg-gray-900 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                   >
                     Completed
@@ -662,11 +683,16 @@ export function TaskManagement() {
                           {completedTasks.map((task) => (
                             <div
                               key={task.id}
-                              className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-gray-50"
+                              onClick={() => handleTaskClick(task)}
+                              className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-gray-50 cursor-pointer"
                             >
                               <Checkbox
                                 checked={true}
-                                onCheckedChange={() => handleToggleTask(task.id, true)}
+                                onCheckedChange={(e) => {
+                                  e.stopPropagation?.();
+                                  handleToggleTask(task.id, true);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
                                 className="mt-1"
                               />
                               <div className="flex-1 min-w-0">
@@ -691,13 +717,24 @@ export function TaskManagement() {
                                   )}
                                 </div>
                                 <p className="text-xs text-gray-500 mb-2">{task.description}</p>
-                                <div className="flex items-center gap-1 text-xs text-gray-400">
-                                  <Clock className="w-3 h-3" />
-                                  <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
+                                <div className="flex items-center gap-3 text-xs text-gray-400">
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
+                                  </div>
+                                  {task.assignees && task.assignees.length > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <Users className="w-3 h-3" />
+                                      <span>{formatAssignees(task.assignees)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <button
-                                onClick={() => handleDeleteTask(task.id, true)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTask(task.id, true);
+                                }}
                                 className="p-1 hover:bg-gray-100 rounded transition-colors"
                               >
                                 <Trash2 className="w-4 h-4 text-red-500" />
@@ -784,11 +821,16 @@ export function TaskManagement() {
                         (showAllTasks ? tasks : filteredTasks).map((task) => (
                           <div
                             key={task.id}
-                            className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            onClick={() => handleTaskClick(task)}
+                            className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
                           >
                             <Checkbox
                               checked={task.completed}
-                              onCheckedChange={() => handleToggleTask(task.id)}
+                              onCheckedChange={(e) => {
+                                e.stopPropagation?.();
+                                handleToggleTask(task.id);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
                               className="mt-1"
                             />
                             <div className="flex-1 min-w-0">
@@ -813,13 +855,24 @@ export function TaskManagement() {
                                 )}
                               </div>
                               <p className="text-xs text-gray-600 mb-2">{task.description}</p>
-                              <div className="flex items-center gap-1 text-xs text-gray-500">
-                                <Clock className="w-3 h-3" />
-                                <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
+                              <div className="flex items-center gap-3 text-xs text-gray-500">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{task.taskType === "meeting" ? "Date:" : "Due:"} {task.deadline}</span>
+                                </div>
+                                {task.assignees && task.assignees.length > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <Users className="w-3 h-3" />
+                                    <span>{formatAssignees(task.assignees)}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <button
-                              onClick={() => handleDeleteTask(task.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTask(task.id);
+                              }}
                               className="p-1 hover:bg-gray-100 rounded transition-colors"
                             >
                               <Trash2 className="w-4 h-4 text-red-500" />
@@ -1054,6 +1107,125 @@ export function TaskManagement() {
           </Card>
         </div>
       </div>
+
+      {/* Task Detail Modal */}
+      <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>{selectedTask?.taskType === "meeting" ? "📅" : "📋"}</span>
+              {selectedTask?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Task Details
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTask && (
+            <div className="space-y-4 mt-4">
+              {/* Status & Urgency */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={selectedTask.completed ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}>
+                  {selectedTask.completed ? "Completed" : "Active"}
+                </Badge>
+                <Badge className={`${getUrgencyColor(selectedTask.urgency)}`}>
+                  {selectedTask.urgency}
+                </Badge>
+                {selectedTask.taskType === "meeting" && (
+                  <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+                    Meeting
+                  </Badge>
+                )}
+              </div>
+
+              {/* Description */}
+              {selectedTask.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Description</h4>
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    {selectedTask.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Deadline */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-1">
+                  {selectedTask.taskType === "meeting" ? "Date" : "Deadline"}
+                </h4>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Clock className="w-4 h-4" />
+                  <span>{selectedTask.deadline}</span>
+                </div>
+              </div>
+
+              {/* Project */}
+              {selectedTask.projectName && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Project</h4>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-purple-100 text-purple-700 border-purple-300">
+                      <FolderKanban className="w-3 h-3 mr-1" />
+                      {selectedTask.projectName}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* Assignees */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Assigned To</h4>
+                {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedTask.assignees.map((assignee, index) => (
+                      <div
+                        key={assignee.id || index}
+                        className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg"
+                      >
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-medium text-blue-700">
+                            {(assignee.firstName?.[0] || assignee.name?.[0] || '?').toUpperCase()}
+                            {(assignee.lastName?.[0] || assignee.name?.split(' ')[1]?.[0] || '').toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {assignee.name || `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() || 'Unknown'}
+                          </p>
+                          {assignee.email && (
+                            <p className="text-xs text-gray-500">{assignee.email}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No assignees</p>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsTaskModalOpen(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant={selectedTask.completed ? "outline" : "default"}
+                  onClick={() => {
+                    handleToggleTask(selectedTask.id, selectedTask.completed);
+                    setIsTaskModalOpen(false);
+                  }}
+                >
+                  {selectedTask.completed ? "Mark as Active" : "Mark as Complete"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

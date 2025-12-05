@@ -1,0 +1,69 @@
+title,description,urgency,status,is_completed,department,deadline
+Review BMS sensor data,Analyze temperature sensor readings from Building A,medium,completed,1,Engineering,2025-11-25
+Update firewall rules,Add new rules for vendor VPN access,high,completed,1,IT,2025-11-25
+Calibrate pressure sensors,Monthly calibration of differential pressure sensors,medium,completed,1,Engineering,2025-11-25
+Network switch replacement,Replace aging switch in Server Room B,urgent,completed,1,IT,2025-11-26
+HVAC filter inspection,Inspect and document filter conditions in AHU-1 through AHU-4,low,completed,1,Engineering,2025-11-26
+Update server documentation,Document new server configurations,low,completed,1,IT,2025-11-26
+Test backup generators,Monthly backup generator test run,high,completed,1,Engineering,2025-11-26
+Deploy monitoring agents,Install monitoring agents on new workstations,medium,completed,1,IT,2025-11-27
+VFD programming update,Update VFD parameters for AHU-3 supply fan,high,completed,1,Engineering,2025-11-27
+Security patch deployment,Deploy November security patches to all servers,urgent,completed,1,IT,2025-11-27
+Emergency on-call coverage,Holiday on-call system monitoring,high,completed,1,IT,2025-11-28
+Building system check,Holiday building automation verification,medium,completed,1,Engineering,2025-11-28
+Post-holiday system verification,Verify all systems operational after holiday,high,completed,1,IT,2025-11-29
+Chiller performance review,Review chiller efficiency data from the week,medium,completed,1,Engineering,2025-11-29
+User access audit,Quarterly user access rights review,medium,completed,1,IT,2025-11-29
+Update P&ID drawings,Update piping diagrams for recent modifications,low,completed,1,Engineering,2025-11-29
+Backup verification,Verify weekend backup completion,high,completed,1,IT,2025-11-30
+Energy report generation,Generate monthly energy consumption report,medium,completed,1,Engineering,2025-11-30
+Review vendor proposals,Review proposals for new network equipment,medium,completed,1,IT,2025-11-30
+Monthly system maintenance,First of month scheduled maintenance window,high,completed,1,IT,2025-12-01
+Update control setpoints,Adjust temperature setpoints for winter operation,medium,completed,1,Engineering,2025-12-01
+SSL certificate renewal,Renew SSL certificates expiring this month,urgent,completed,1,IT,2025-12-01
+Network topology update,Update network diagrams with new switches,medium,completed,1,IT,2025-12-02
+PLC firmware update,Update PLC firmware in Substation 2,high,completed,1,Engineering,2025-12-02
+User training session,New employee IT orientation,low,completed,1,IT,2025-12-02
+Check valve inspection,Inspect check valves in cooling system,medium,completed,1,Engineering,2025-12-02
+Backup recovery test,Test disaster recovery procedures,high,completed,1,IT,2025-12-03
+Sensor calibration batch,Calibrate flow sensors in Plant B,medium,completed,1,Engineering,2025-12-03
+Software license audit,Verify all software licenses current,medium,completed,1,IT,2025-12-03
+SCADA system backup,Weekly SCADA configuration backup,high,in-progress,0,Engineering,2025-12-04
+Firewall rule review,Monthly firewall rule audit,high,in-progress,0,IT,2025-12-04
+Pump seal replacement,Replace worn seals on cooling pump 3,urgent,in-progress,0,Engineering,2025-12-04
+VPN configuration,Configure VPN for new remote workers,medium,in-progress,0,IT,2025-12-04
+Server patching,Apply security patches to production servers,urgent,pending,0,IT,2025-12-05
+Motor bearing inspection,Inspect bearings on exhaust fan motors,medium,pending,0,Engineering,2025-12-05
+Database optimization,Run monthly database maintenance scripts,medium,pending,0,IT,2025-12-05
+Control panel inspection,Inspect electrical control panels,medium,pending,0,Engineering,2025-12-06
+Email server maintenance,Exchange server maintenance window,high,pending,0,IT,2025-12-06
+Update HMI graphics,Update HMI screens for new equipment,low,pending,0,Engineering,2025-12-06
+Workstation deployment,Deploy 5 new workstations to Engineering,medium,pending,0,IT,2025-12-06
+Weekend monitoring check,Verify weekend monitoring systems,high,pending,0,IT,2025-12-07
+HVAC schedule adjustment,Adjust weekend HVAC schedules,low,pending,0,Engineering,2025-12-07
+System health check,Sunday system health verification,medium,pending,0,IT,2025-12-08
+Building walkthrough,Weekend building inspection,low,pending,0,Engineering,2025-12-08
+Weekly project review,Review project status and priorities,medium,pending,0,Both,2025-12-09
+RTU programming update,Update RTU configuration for new sensors,high,pending,0,Engineering,2025-12-09
+Printer fleet update,Update firmware on network printers,low,pending,0,IT,2025-12-09
+Pipe insulation check,Inspect pipe insulation in mechanical room,medium,pending,0,Engineering,2025-12-09
+Network performance report,Generate monthly network performance metrics,medium,pending,0,IT,2025-12-10
+VFD maintenance,Preventive maintenance on VFDs,high,pending,0,Engineering,2025-12-10
+Active Directory cleanup,Remove inactive user accounts,medium,pending,0,IT,2025-12-10
+BACnet integration testing,Test BACnet communication with new controllers,high,pending,0,Engineering,2025-12-11
+Antivirus definition update,Push latest antivirus definitions to all endpoints,medium,pending,0,IT,2025-12-11
+Chiller water treatment,Monthly water treatment for chiller system,medium,pending,0,Engineering,2025-12-11
+SD-WAN configuration review,Review SD-WAN policies and optimize routing,high,pending,0,IT,2025-12-12
+Cooling tower inspection,Quarterly cooling tower inspection and cleaning,medium,pending,0,Engineering,2025-12-12
+Print server migration,Migrate print services to new server,medium,pending,0,IT,2025-12-12
+Emergency lighting test,Monthly emergency lighting system test,low,pending,0,Engineering,2025-12-12
+Weekend system monitoring,Monitor critical systems over weekend,high,pending,0,IT,2025-12-13
+BMS trending review,Review BMS data trends for the week,low,pending,0,Engineering,2025-12-13
+On-call coverage,Sunday on-call monitoring shift,medium,pending,0,IT,2025-12-14
+Weekly status meeting prep,Prepare status reports for weekly review,medium,pending,0,Both,2025-12-15
+IoT sensor deployment,Deploy new IoT sensors in Building C,high,pending,0,Engineering,2025-12-15
+DNS server update,Update DNS records for new services,medium,pending,0,IT,2025-12-15
+Air quality monitoring setup,Configure new air quality monitors,medium,pending,0,Engineering,2025-12-15
+Network switch firmware update,Update firmware on core switches,high,pending,0,IT,2025-12-16
+Damper actuator replacement,Replace faulty damper actuators in AHU-2,urgent,pending,0,Engineering,2025-12-16
+Security camera audit,Audit security camera coverage and functionality,medium,pending,0,IT,2025-12-16

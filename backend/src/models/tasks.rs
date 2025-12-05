@@ -22,6 +22,15 @@ pub struct Task {
     pub is_completed: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct TaskAssignee {
+    pub id: String,
+    pub task_id: String,
+    pub user_id: String,
+    pub assigned_at: Option<String>,
+    pub assigned_by: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskResponse {
@@ -34,6 +43,7 @@ pub struct TaskResponse {
     pub project_id: Option<String>,
     pub project_name: Option<String>,
     pub assignee: Option<UserSummary>,
+    pub assignees: Option<Vec<UserSummary>>,
     pub created_by: Option<UserSummary>,
     pub deadline: String,
     pub days_until_deadline: Option<i64>,
@@ -76,6 +86,7 @@ pub struct CreateTaskRequest {
     pub department: String,
     pub project_id: Option<String>,
     pub assignee_id: Option<String>,
+    pub assignee_ids: Option<Vec<String>>,
     pub deadline: String,
     pub is_completed: Option<bool>,
 }
@@ -89,6 +100,7 @@ pub struct UpdateTaskRequest {
     pub department: Option<String>,
     pub project_id: Option<String>,
     pub assignee_id: Option<String>,
+    pub assignee_ids: Option<Vec<String>>,
     pub deadline: Option<String>,
     pub is_completed: Option<bool>,
 }

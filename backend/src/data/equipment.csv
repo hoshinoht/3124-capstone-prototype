@@ -1,0 +1,14 @@
+name,category,status,serial_number,notes
+Oscilloscope OSC-2000,Testing,available,OSC2000-12345,High-precision digital oscilloscope
+Network Analyzer NA-500,Testing,available,NA500-67890,RF network analyzer 9kHz-6GHz
+Power Supply PS-1000,Power,available,PS1000-11111,Programmable DC power supply
+Thermal Imaging Camera TIC-300,Diagnostic,available,TIC300-22222,FLIR thermal camera for electrical inspections
+Digital Multimeter DMM-PRO,Testing,available,DMM-33333,Precision multimeter with data logging
+Fiber Optic Tester FOT-100,Network,booked,FOT100-44444,OTDR for fiber testing
+Cable Tester CT-2000,Network,available,CT2000-55555,Cat5/6/7 cable certifier
+Spectrum Analyzer SA-600,Testing,maintenance,SA600-66666,RF spectrum analyzer - calibration due
+Air Quality Monitor AQM-50,Environmental,available,AQM50-77777,"CO2, PM2.5, temperature, humidity monitoring"
+Pressure Calibrator PC-100,Calibration,available,PC100-88888,Precision pressure calibrator 0-300 PSI
+Data Logger DL-8CH,Monitoring,in-use,DL8CH-99999,8-channel temperature/voltage logger
+Clamp Meter CM-400,Electrical,available,CM400-10101,AC/DC clamp meter up to 400A
+Vibration Analyzer VA-200,Diagnostic,available,VA200-20202,Portable vibration analyzer for motor diagnostics

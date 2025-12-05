@@ -1,0 +1,5 @@
+title,description,event_type,start_time,end_time,location,department
+Team Standup,Daily standup meeting,meeting,09:00,09:30,Conference Room A,Both
+Sprint Review,End of sprint review meeting,meeting,14:00,15:30,Conference Room B,IT
+Server Maintenance Window,Scheduled maintenance,deadline,22:00,02:00,,IT
+Equipment Delivery,New oscilloscope delivery,delivery,10:00,12:00,Loading Dock,Engineering

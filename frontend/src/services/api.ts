@@ -39,6 +39,15 @@ export interface AuthResponse {
   };
 }
 
+export interface TaskAssignee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  email?: string;
+  assignedAt?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -49,6 +58,7 @@ export interface Task {
   projectId?: string;
   projectName?: string;
   assigneeId?: string;
+  assignees?: TaskAssignee[];
   deadline: string;
   completedAt?: string;
   createdAt?: string;
@@ -262,6 +272,25 @@ export const tasksApi = {
     return apiRequest('/tasks/urgent');
   },
 
+  getMyTodayTasks: async (): Promise<{ success: boolean; data: { tasks: Task[]; count: number } }> => {
+    return apiRequest('/tasks/my-today');
+  },
+
+  getTaskAssignees: async (taskId: string): Promise<{ success: boolean; data: { assignees: TaskAssignee[] } }> => {
+    return apiRequest(`/tasks/${taskId}/assignees`);
+  },
+
+  addTaskAssignees: async (taskId: string, userIds: string[]): Promise<{ success: boolean; data: { addedCount: number } }> => {
+    return apiRequest(`/tasks/${taskId}/assignees`, {
+      method: 'POST',
+      body: JSON.stringify({ userIds }),
+    });
+  },
+
+  removeTaskAssignee: async (taskId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/tasks/${taskId}/assignees/${userId}`, { method: 'DELETE' });
+  },
+
   create: async (task: {
     title: string;
     description?: string;
@@ -270,6 +299,7 @@ export const tasksApi = {
     deadline: string;
     projectId?: string;
     assigneeId?: string;
+    assigneeIds?: string[];
     isCompleted?: boolean;
   }): Promise<{ success: boolean; data: { task: Task } }> => {
     return apiRequest('/tasks', {

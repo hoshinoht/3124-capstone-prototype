@@ -1,0 +1,5 @@
+title,url,description,department,is_active
+Jira Board,https://jira.company.com,Project management,Both,1
+Confluence Wiki,https://wiki.company.com,Documentation,Both,1
+GitHub,https://github.com/company,Code repository,IT,1
+Monitoring Dashboard,https://grafana.company.com,System monitoring,IT,1
