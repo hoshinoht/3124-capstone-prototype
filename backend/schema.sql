@@ -660,27 +660,28 @@ VALUES
 -- Insert sample check-in records (Personnel Tracking)
 -- Using date('now') to ensure records appear as "today" for the demo
 -- Normal 9-6 work hours with reasonable check-in/out times
+-- Locations are realistic Singapore business locations
 INSERT OR IGNORE INTO check_in_records (id, user_id, location, check_in_time, check_out_time, notes, device_type)
 VALUES 
     -- Michael Chen - Field Engineer, checked in at 9:05 AM on mobile, still active
-    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b01', '550e8400-e29b-41d4-a716-446655440001', 'Client Site - TechCorp', date('now') || ' 09:05:00', NULL, 'On-site support for BMS installation', 'mobile'),
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b01', '550e8400-e29b-41d4-a716-446655440001', 'Changi Business Park', date('now') || ' 09:05:00', NULL, 'On-site support for BMS installation', 'mobile'),
     -- Sarah Johnson - Senior Engineer, checked in at 8:55 AM on desktop, still active  
-    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b02', '550e8400-e29b-41d4-a716-446655440002', 'Corporate Headquarters', date('now') || ' 08:55:00', NULL, 'Engineering review meeting', 'desktop'),
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b02', '550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', date('now') || ' 08:55:00', NULL, 'Engineering review meeting', 'desktop'),
     -- David Park - Field Technician, checked in at 9:15 AM on mobile, still active
-    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b03', '550e8400-e29b-41d4-a716-446655440003', 'Manufacturing Plant North', date('now') || ' 09:15:00', NULL, 'Preventive maintenance on production line', 'mobile'),
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b03', '550e8400-e29b-41d4-a716-446655440003', 'Jurong Industrial Estate', date('now') || ' 09:15:00', NULL, 'Preventive maintenance on production line', 'mobile'),
     -- Emily Rodriguez - Project Manager, worked 9 AM to 6 PM yesterday on desktop
-    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b04', '550e8400-e29b-41d4-a716-446655440004', 'Client Site - TechCorp', date('now', '-1 day') || ' 09:00:00', date('now', '-1 day') || ' 18:05:00', 'Project kickoff and client meetings', 'desktop'),
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b04', '550e8400-e29b-41d4-a716-446655440004', 'Suntec City', date('now', '-1 day') || ' 09:00:00', date('now', '-1 day') || ' 18:05:00', 'Project kickoff and client meetings', 'desktop'),
     -- James Wilson - Equipment Specialist, checked in at 9:10 AM on mobile, still active
-    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b05', '550e8400-e29b-41d4-a716-446655440005', 'Distribution Center', date('now') || ' 09:10:00', NULL, 'Equipment inventory and calibration', 'mobile'),
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b05', '550e8400-e29b-41d4-a716-446655440005', 'Tuas', date('now') || ' 09:10:00', NULL, 'Equipment inventory and calibration', 'mobile'),
     -- Lisa Anderson - Field Engineer, worked 8:50 AM to 5:55 PM yesterday on desktop
-    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b06', '550e8400-e29b-41d4-a716-446655440006', 'Corporate Headquarters', date('now', '-1 day') || ' 08:50:00', date('now', '-1 day') || ' 17:55:00', 'Morning standup and documentation', 'desktop');
+    ('c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b06', '550e8400-e29b-41d4-a716-446655440006', 'One-North', date('now', '-1 day') || ' 08:50:00', date('now', '-1 day') || ' 17:55:00', 'Morning standup and documentation', 'desktop');
 
 -- Update user_locations table for active check-ins
 INSERT OR REPLACE INTO user_locations (user_id, location, last_check_in, is_checked_in, updated_at)
 VALUES 
-    ('550e8400-e29b-41d4-a716-446655440001', 'Client Site - TechCorp', datetime('now', '-2 hours', '-32 minutes'), 1, datetime('now')),
-    ('550e8400-e29b-41d4-a716-446655440002', 'Corporate Headquarters', datetime('now', '-3 hours', '-30 minutes'), 1, datetime('now')),
-    ('550e8400-e29b-41d4-a716-446655440003', 'Manufacturing Plant North', datetime('now', '-4 hours', '-15 minutes'), 1, datetime('now')),
-    ('550e8400-e29b-41d4-a716-446655440004', 'Client Site - TechCorp', datetime('now', '-10 hours'), 0, datetime('now')),
-    ('550e8400-e29b-41d4-a716-446655440005', 'Distribution Center', datetime('now', '-3 hours', '-45 minutes'), 1, datetime('now')),
-    ('550e8400-e29b-41d4-a716-446655440006', 'Corporate Headquarters', datetime('now', '-5 hours', '-10 minutes'), 0, datetime('now'));
+    ('550e8400-e29b-41d4-a716-446655440001', 'Changi Business Park', datetime('now', '-2 hours', '-32 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440002', 'Marina Bay Financial Centre', datetime('now', '-3 hours', '-30 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440003', 'Jurong Industrial Estate', datetime('now', '-4 hours', '-15 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440004', 'Suntec City', datetime('now', '-10 hours'), 0, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440005', 'Tuas', datetime('now', '-3 hours', '-45 minutes'), 1, datetime('now')),
+    ('550e8400-e29b-41d4-a716-446655440006', 'One-North', datetime('now', '-5 hours', '-10 minutes'), 0, datetime('now'));
