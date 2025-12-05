@@ -53,6 +53,8 @@ export function Projects() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [deleteStats, setDeleteStats] = useState<{ taskCount: number; memberCount: number } | null>(null);
+  const [deleteStatsLoading, setDeleteStatsLoading] = useState(false);
   const [taskPage, setTaskPage] = useState(1);
   const tasksPerPage = 5;
 
@@ -169,10 +171,29 @@ export function Projects() {
     }
   };
 
-  const openDeleteModal = (project: Project) => {
+  const openDeleteModal = async (project: Project) => {
     setProjectToDelete(project);
     setDeleteConfirmName("");
+    setDeleteStats(null);
+    setDeleteStatsLoading(true);
     setShowDeleteModal(true);
+
+    // Fetch task and member counts for the project
+    try {
+      const [tasksRes, membersRes] = await Promise.all([
+        projectsApi.getTasks(project.id),
+        projectsApi.getMembers(project.id),
+      ]);
+      setDeleteStats({
+        taskCount: tasksRes.data?.total || tasksRes.data?.tasks?.length || 0,
+        memberCount: membersRes.data?.total || membersRes.data?.members?.length || 0,
+      });
+    } catch (err) {
+      console.error("Failed to fetch project stats:", err);
+      setDeleteStats({ taskCount: 0, memberCount: 0 });
+    } finally {
+      setDeleteStatsLoading(false);
+    }
   };
 
   const handleDeleteProject = async () => {
@@ -709,8 +730,8 @@ export function Projects() {
 
       {/* Edit Project Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="p-6 max-w-md w-full">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium">Edit Project</h3>
               <button
@@ -804,11 +825,21 @@ export function Projects() {
               <p className="text-sm text-red-800 font-medium mb-2">
                 ⚠️ Warning: Deleting this project will permanently remove:
               </p>
-              <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
-                <li>All team members from this project</li>
-                <li>All tasks assigned to this project</li>
-                <li>All meetings scheduled under this project</li>
-              </ul>
+              {deleteStatsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-red-700">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading project data...</span>
+                </div>
+              ) : (
+                <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                  <li>
+                    <span className="font-semibold">{deleteStats?.memberCount || 0}</span> team member{(deleteStats?.memberCount || 0) !== 1 ? 's' : ''} from this project
+                  </li>
+                  <li>
+                    <span className="font-semibold">{deleteStats?.taskCount || 0}</span> task{(deleteStats?.taskCount || 0) !== 1 ? 's' : ''} assigned to this project
+                  </li>
+                </ul>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -841,6 +872,7 @@ export function Projects() {
                     setShowDeleteModal(false);
                     setProjectToDelete(null);
                     setDeleteConfirmName("");
+                    setDeleteStats(null);
                   }}
                 >
                   Cancel

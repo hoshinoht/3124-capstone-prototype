@@ -404,11 +404,14 @@ async fn seed_projects(
         }
 
         // Explicitly add Javier to the first 2 projects
+        // First project: Javier is an owner, Second project: Javier is a member
         if count < 2 {
             if let Some(javier_id) = email_to_id.get("javier21choo@gmail.com") {
                 // Only add if Javier is not already a member
                 if !project_member_ids.contains(javier_id) {
                     let member_id = generate_uuid();
+                    let role = if count == 0 { "owner" } else { "member" };
+
                     sqlx::query(
                         r#"
                         INSERT OR IGNORE INTO project_members (id, project_id, user_id, role, added_at)
@@ -418,13 +421,13 @@ async fn seed_projects(
                     .bind(&member_id)
                     .bind(&project_id)
                     .bind(javier_id)
-                    .bind("member")
+                    .bind(role)
                     .bind(now_str())
                     .execute(pool)
                     .await?;
 
                     project_member_ids.push(javier_id.clone());
-                    println!("    ✓ Added Javier Choo to project");
+                    println!("    ✓ Added Javier Choo to project as {}", role);
                 }
             }
         }
