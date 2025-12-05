@@ -1,14 +1,16 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi, usersApi, User, LoginRequest, RegisterRequest } from '../services/api';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { authApi, usersApi, User, LoginRequest, RegisterRequest, SESSION_EXPIRED_EVENT } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  sessionExpired: boolean;
   login: (credentials: LoginRequest) => Promise<{ success: boolean; error?: string }>;
   register: (data: RegisterRequest) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
+  clearSessionExpired: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,6 +18,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Handle session expired event from API
+  const handleSessionExpired = useCallback(() => {
+    setUser(null);
+    setSessionExpired(true);
+  }, []);
+
+  // Clear session expired flag (after user acknowledges or logs in again)
+  const clearSessionExpired = useCallback(() => {
+    setSessionExpired(false);
+  }, []);
+
+  useEffect(() => {
+    // Listen for session expired events
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     // Check for existing session on mount
@@ -51,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authApi.login(credentials);
       if (response.success && response.data) {
         setUser(response.data.user);
+        setSessionExpired(false); // Clear any session expired flag on successful login
         return { success: true };
       }
       return { success: false, error: response.error?.message || 'Login failed' };
@@ -65,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authApi.register(data);
       if (response.success && response.data) {
         setUser(response.data.user);
+        setSessionExpired(false); // Clear any session expired flag on successful registration
         return { success: true };
       }
       return { success: false, error: response.error?.message || 'Registration failed' };
@@ -94,10 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        sessionExpired,
         login,
         register,
         logout,
         updateUser,
+        clearSessionExpired,
       }}
     >
       {children}

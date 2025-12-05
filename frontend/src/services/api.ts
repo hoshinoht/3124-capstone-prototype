@@ -105,6 +105,16 @@ export interface DashboardData {
   }>;
 }
 
+// Session expired event - components can listen to this
+export const SESSION_EXPIRED_EVENT = 'session-expired';
+
+// Dispatch session expired event
+const dispatchSessionExpired = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+};
+
 // API helper
 async function apiRequest<T>(
   endpoint: string,
@@ -127,11 +137,9 @@ async function apiRequest<T>(
     credentials: 'include',
   });
 
-  // Handle 401 Unauthorized - clear stored auth and redirect
+  // Handle 401 Unauthorized - clear stored auth and trigger logout
   if (response.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    // Don't throw, just return a structured error response
+    dispatchSessionExpired();
     throw new Error('Session expired. Please log in again.');
   }
 
@@ -147,31 +155,45 @@ async function apiRequest<T>(
 // Auth API
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    const response = await apiRequest<AuthResponse>('/auth/login', {
+    // Don't use apiRequest for login since it throws on 401 (which is normal for invalid credentials)
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(credentials),
+      credentials: 'include',
     });
 
-    if (response.success && response.data) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    const data: AuthResponse = await response.json();
+
+    if (data.success && data.data) {
+      localStorage.setItem('token', data.data.token);
+      localStorage.setItem('user', JSON.stringify(data.data.user));
     }
 
-    return response;
+    return data;
   },
 
   register: async (data: RegisterRequest): Promise<AuthResponse> => {
-    const response = await apiRequest<AuthResponse>('/auth/register', {
+    // Don't use apiRequest for register to handle errors properly
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(data),
+      credentials: 'include',
     });
 
-    if (response.success && response.data) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    const responseData: AuthResponse = await response.json();
+
+    if (responseData.success && responseData.data) {
+      localStorage.setItem('token', responseData.data.token);
+      localStorage.setItem('user', JSON.stringify(responseData.data.user));
     }
 
-    return response;
+    return responseData;
   },
 
   logout: async (): Promise<void> => {

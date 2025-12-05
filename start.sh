@@ -144,7 +144,7 @@ start_backend() {
     fi
     
     # Build and run the backend
-    cargo run &
+    cargo run --bin it_engineering_dashboard &
     BACKEND_PID=$!
     echo $BACKEND_PID > "$BACKEND_PID_FILE"
     

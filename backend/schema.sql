@@ -374,7 +374,7 @@ INSERT OR IGNORE INTO users (id, email, password_hash, first_name, last_name, de
 VALUES (
     '550e8400-e29b-41d4-a716-446655440000',
     'admin@company.com',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.',
+    '$2b$12$clC6O4lHiK9zAFCnttCIzuoU02yWsyZht0727gwzz4Qm82gxdGeDG',
     'Admin',
     'User',
     'Both',
@@ -389,15 +389,28 @@ VALUES (
 -- Additional demo users (password for all: password123)
 INSERT OR IGNORE INTO users (id, email, password_hash, first_name, last_name, department, role, is_active)
 VALUES 
-    ('550e8400-e29b-41d4-a716-446655440001', 'michael.chen@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Michael', 'Chen', 'Engineering', 'Member', 1),
-    ('550e8400-e29b-41d4-a716-446655440002', 'sarah.johnson@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Sarah', 'Johnson', 'Engineering', 'Member', 1),
-    ('550e8400-e29b-41d4-a716-446655440003', 'david.park@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'David', 'Park', 'Engineering', 'Member', 1),
-    ('550e8400-e29b-41d4-a716-446655440004', 'emily.rodriguez@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Emily', 'Rodriguez', 'IT', 'Member', 1),
-    ('550e8400-e29b-41d4-a716-446655440005', 'james.wilson@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'James', 'Wilson', 'IT', 'Member', 1),
-    ('550e8400-e29b-41d4-a716-446655440006', 'lisa.anderson@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Lisa', 'Anderson', 'Engineering', 'Member', 1),
-    ('550e8400-e29b-41d4-a716-446655440007', 'robert.martinez@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Robert', 'Martinez', 'IT', 'Admin', 1),
-    ('550e8400-e29b-41d4-a716-446655440008', 'jennifer.lee@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'Jennifer', 'Lee', 'Both', 'Member', 1),
-    ('550e8400-e29b-41d4-a716-446655440009', 'william.taylor@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4edaM6ANVzCPKqC.', 'William', 'Taylor', 'Engineering', 'Viewer', 1);
+    ('550e8400-e29b-41d4-a716-446655440001', 'michael.chen@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'Michael', 'Chen', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440002', 'sarah.johnson@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'Sarah', 'Johnson', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440003', 'david.park@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'David', 'Park', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440004', 'emily.rodriguez@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'Emily', 'Rodriguez', 'IT', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440005', 'james.wilson@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'James', 'Wilson', 'IT', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440006', 'lisa.anderson@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'Lisa', 'Anderson', 'Engineering', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440007', 'robert.martinez@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'Robert', 'Martinez', 'IT', 'Admin', 1),
+    ('550e8400-e29b-41d4-a716-446655440008', 'jennifer.lee@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'Jennifer', 'Lee', 'Both', 'Member', 1),
+    ('550e8400-e29b-41d4-a716-446655440009', 'william.taylor@company.com', '$2b$12$YGkbb8C8.p91C.n3V7IZmeh79inqRJcr6oYRYQttdjBAjPl4nBNNa', 'William', 'Taylor', 'Engineering', 'Viewer', 1);
+
+-- Javier Choo (password: javier21)
+INSERT OR IGNORE INTO users (id, email, password_hash, first_name, last_name, department, role, is_active)
+VALUES (
+    '550e8400-e29b-41d4-a716-446655440010',
+    'javier21@gmail.com',
+    '$2b$12$unSumwplHFxcikhfhUGE4uE59DxkWbjEQMj67SceLm1HmtIATiXMK',
+    'Javier',
+    'Choo',
+    'Engineering',
+    'Member',
+    1
+);
 
 -- Demo Projects
 INSERT OR IGNORE INTO projects (id, name, description, status, created_by, created_at)

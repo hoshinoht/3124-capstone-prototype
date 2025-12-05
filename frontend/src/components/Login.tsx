@@ -1,24 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { AlertCircle, Eye, EyeOff, User, Lock } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, User, Lock, Clock } from "lucide-react";
 
 interface LoginProps {
   onSwitchToRegister: () => void;
 }
 
 export function Login({ onSwitchToRegister }: LoginProps) {
-  const { login } = useAuth();
+  const { login, sessionExpired, clearSessionExpired } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Clear session expired message after 5 seconds
+  useEffect(() => {
+    if (sessionExpired) {
+      const timer = setTimeout(() => {
+        clearSessionExpired();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionExpired, clearSessionExpired]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    clearSessionExpired();
 
     if (!email || !password) {
       setError("Please fill in all fields");
@@ -63,10 +74,27 @@ export function Login({ onSwitchToRegister }: LoginProps) {
         <p className="text-sm text-gray-500 text-center mb-6">Sign in to your account</p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {sessionExpired && (
+            <div className="flex items-center gap-3 p-4 bg-amber-50 border-2 border-amber-500 rounded-lg text-amber-700 text-sm shadow-sm">
+              <div className="flex-shrink-0 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-amber-800">Session Expired</p>
+                <p className="text-amber-600">Your session has expired. Please sign in again.</p>
+              </div>
+            </div>
+          )}
+
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="flex items-center gap-3 p-4 bg-red-50 border-2 border-red-500 rounded-lg text-red-700 text-sm shadow-sm">
+              <div className="flex-shrink-0 w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-red-800">Login Failed</p>
+                <p className="text-red-600">{error}</p>
+              </div>
             </div>
           )}
 
