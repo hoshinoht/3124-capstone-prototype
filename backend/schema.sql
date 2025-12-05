@@ -403,7 +403,7 @@ VALUES
 INSERT OR IGNORE INTO users (id, email, password_hash, first_name, last_name, department, role, is_active)
 VALUES (
     '550e8400-e29b-41d4-a716-446655440010',
-    'javier21@gmail.com',
+    'javier21choo@gmail.com',
     '$2b$12$unSumwplHFxcikhfhUGE4uE59DxkWbjEQMj67SceLm1HmtIATiXMK',
     'Javier',
     'Choo',
