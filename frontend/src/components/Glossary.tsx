@@ -458,13 +458,13 @@ export function Glossary() {
                 // Show first page, last page, current page, and pages around current
                 const showPage = page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
                 const showEllipsis = page === 2 && currentPage > 3 || page === totalPages - 1 && currentPage < totalPages - 2;
-                
+
                 if (showEllipsis && !showPage) {
                   return <span key={page} className="px-2 text-gray-400">...</span>;
                 }
-                
+
                 if (!showPage) return null;
-                
+
                 return (
                   <Button
                     key={page}
