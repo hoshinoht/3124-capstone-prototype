@@ -3,6 +3,7 @@ mod middleware {
     pub mod logging;
 }
 mod error;
+mod seeder;
 mod models {
     pub mod equipment;
     pub mod events;
@@ -52,6 +53,15 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to connect to SQLite database");
     let db_pool = web::Data::new(db_pool);
+
+    // Run database seeder on startup
+    info!("Running database seeder...");
+    if let Err(e) = seeder::run_seeder(db_pool.get_ref()).await {
+        eprintln!("Failed to seed database: {}", e);
+        // Continue anyway - seeding is optional
+    } else {
+        info!("Database seeding completed");
+    }
 
     // Perform initial cleanup of expired sessions
     info!("Performing initial cleanup of expired sessions...");

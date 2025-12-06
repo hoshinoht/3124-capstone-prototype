@@ -1,5 +1,14 @@
 # Centralized Collaboration Dashboard - IT-Engineering Coordination Platform
 
+> **⚠️ IMPORTANT: Database Seeding Notice**
+> 
+> The application automatically **wipes and re-seeds the database** on every server startup. This ensures fresh test data with current dates, including:
+> - 4 daily tasks for `javier21choo@gmail.com` (160 tasks total across 40 days)
+> - 4 daily events for `javier21choo@gmail.com` (160 events total across 40 days)
+> - All other test data (users, projects, equipment, etc.)
+> 
+> **This means any data you create will be lost when you restart the server.** This is intentional for development/demo purposes.
+
 ## Project Overview
 
 A full-stack web application designed for IT-Engineering coordination with features including:

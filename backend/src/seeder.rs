@@ -1,15 +1,7 @@
-//! Database Seeder Script
+//! Database Seeder Module
 //!
-//! This script seeds the database with data from CSV files and generates
-//! random tasks and check-in records.
-//!
-//! Usage:
-//!   cargo run --bin seed_database
-//!
-//! Options (via environment variables):
-//!   SEED_TASK_MODE=random    - Assign random members to tasks (default)
-//!   SEED_TASK_MODE=project   - Assign all project members to tasks
-//!   SEED_CLEAR_DATA=true     - Clear existing data before seeding
+//! This module provides database seeding functionality that can be called
+//! from the main application on startup.
 
 use bcrypt::{DEFAULT_COST, hash};
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Utc};
@@ -26,12 +18,8 @@ use uuid::Uuid;
 // CONFIGURATION CONSTANTS
 // ============================================================================
 
-/// Number of days before today to start generating tasks
 const DAYS_BEFORE_TODAY: i64 = 20;
-/// Number of days after today to end generating tasks
 const DAYS_AFTER_TODAY: i64 = 20;
-
-/// Device types for check-in records
 const DEVICE_TYPES: &[&str] = &["desktop", "mobile"];
 
 // ============================================================================
@@ -104,7 +92,7 @@ struct TaskCsv {
     is_completed: u8,
     department: String,
     #[allow(dead_code)]
-    deadline: String, // We'll ignore this and generate our own dates
+    deadline: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,11 +133,6 @@ fn hash_password(password: &str) -> Result<String, bcrypt::BcryptError> {
     hash(password, DEFAULT_COST)
 }
 
-/// Calculate date range dynamically based on current date
-/// Returns (start_date, end_date, today) where:
-/// - start_date = today - DAYS_BEFORE_TODAY
-/// - end_date = today + DAYS_AFTER_TODAY  
-/// - today = current date
 fn calculate_date_range() -> (NaiveDate, NaiveDate, NaiveDate) {
     let today = Utc::now().date_naive();
     let start = today - Duration::days(DAYS_BEFORE_TODAY);
@@ -157,7 +140,6 @@ fn calculate_date_range() -> (NaiveDate, NaiveDate, NaiveDate) {
     (start, end, today)
 }
 
-/// Generate all dates between start and end (inclusive)
 fn generate_date_range(start: NaiveDate, end: NaiveDate) -> Vec<NaiveDate> {
     let mut dates = Vec::new();
     let mut current = start;
@@ -168,26 +150,20 @@ fn generate_date_range(start: NaiveDate, end: NaiveDate) -> Vec<NaiveDate> {
     dates
 }
 
-/// Determine task status based on deadline and current date
 fn determine_task_status(deadline: NaiveDate, current_date: NaiveDate) -> (&'static str, bool) {
     let days_diff = (deadline - current_date).num_days();
 
     if days_diff < -2 {
-        // Past deadline by more than 2 days - completed
         ("completed", true)
     } else if days_diff < 0 {
-        // Just past deadline - in-progress (catching up)
         ("in-progress", false)
     } else if days_diff == 0 {
-        // Due today - in-progress
         ("in-progress", false)
     } else {
-        // Future - pending
         ("pending", false)
     }
 }
 
-/// Load locations from CSV file
 fn load_locations(csv_path: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(csv_path)?;
 
@@ -200,19 +176,28 @@ fn load_locations(csv_path: &str) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(locations)
 }
 
-// ============================================================================
-// SEEDER FUNCTIONS
-// ============================================================================
+async fn check_if_seeded(pool: &SqlitePool) -> Result<bool, Box<dyn Error>> {
+    // Check if there are any users besides the admin
+    let count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM users WHERE email != 'admin@company.com'")
+            .fetch_one(pool)
+            .await?;
+
+    Ok(count.0 > 0)
+}
+
+// Include all the seeding functions from seed_database.rs
+// (seed_users, seed_equipment, seed_projects, seed_events, etc.)
+// These are the same functions, just made available as a module
 
 async fn seed_users(
     pool: &SqlitePool,
     csv_path: &str,
 ) -> Result<HashMap<String, String>, Box<dyn Error>> {
-    println!("📦 Seeding users from {}...", csv_path);
+    log::info!("📦 Seeding users from {}...", csv_path);
 
     let mut email_to_id: HashMap<String, String> = HashMap::new();
 
-    // First, add the default admin user
     let admin_id = "550e8400-e29b-41d4-a716-446655440000".to_string();
     let admin_hash = hash_password("admin123")?;
 
@@ -236,9 +221,8 @@ async fn seed_users(
     .await?;
 
     email_to_id.insert("admin@company.com".to_string(), admin_id);
-    println!("  ✓ Added admin user");
+    log::info!("  ✓ Added admin user");
 
-    // Read and insert users from CSV
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(csv_path)?;
 
     let mut count = 0;
@@ -270,12 +254,12 @@ async fn seed_users(
         count += 1;
     }
 
-    println!("  ✓ Seeded {} users", count);
+    log::info!("  ✓ Seeded {} users", count);
     Ok(email_to_id)
 }
 
 async fn seed_equipment(pool: &SqlitePool, csv_path: &str) -> Result<Vec<String>, Box<dyn Error>> {
-    println!("📦 Seeding equipment from {}...", csv_path);
+    log::info!("📦 Seeding equipment from {}...", csv_path);
 
     let mut equipment_ids = Vec::new();
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(csv_path)?;
@@ -306,7 +290,7 @@ async fn seed_equipment(pool: &SqlitePool, csv_path: &str) -> Result<Vec<String>
         count += 1;
     }
 
-    println!("  ✓ Seeded {} equipment items", count);
+    log::info!("  ✓ Seeded {} equipment items", count);
     Ok(equipment_ids)
 }
 
@@ -316,14 +300,13 @@ async fn seed_projects(
     email_to_id: &HashMap<String, String>,
     user_ids: &[String],
 ) -> Result<Vec<(String, Vec<String>)>, Box<dyn Error>> {
-    println!("📦 Seeding projects from {}...", csv_path);
+    log::info!("📦 Seeding projects from {}...", csv_path);
 
     let mut rng = thread_rng();
     let mut projects_with_members: Vec<(String, Vec<String>)> = Vec::new();
 
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(csv_path)?;
 
-    // Get admin user as fallback
     let admin_id = email_to_id
         .get("admin@company.com")
         .cloned()
@@ -334,7 +317,6 @@ async fn seed_projects(
         let project: ProjectCsv = result?;
         let project_id = generate_uuid();
 
-        // Try to find the creator by email, fallback to admin
         let created_by = email_to_id
             .get(&project.created_by_email)
             .cloned()
@@ -356,7 +338,6 @@ async fn seed_projects(
         .execute(pool)
         .await?;
 
-        // Add project owner
         let owner_member_id = generate_uuid();
         sqlx::query(
             r#"
@@ -374,7 +355,6 @@ async fn seed_projects(
 
         let mut project_member_ids = vec![created_by.clone()];
 
-        // Add 2-4 random members to each project
         let num_members = rng.gen_range(2..=4);
         let available_users: Vec<_> = user_ids.iter().filter(|id| *id != &created_by).collect();
 
@@ -403,11 +383,8 @@ async fn seed_projects(
             project_member_ids.push((*user_id).to_string());
         }
 
-        // Explicitly add Javier to the first 2 projects
-        // First project: Javier is an owner, Second project: Javier is a member
         if count < 2 {
             if let Some(javier_id) = email_to_id.get("javier21choo@gmail.com") {
-                // Only add if Javier is not already a member
                 if !project_member_ids.contains(javier_id) {
                     let member_id = generate_uuid();
                     let role = if count == 0 { "owner" } else { "member" };
@@ -427,7 +404,7 @@ async fn seed_projects(
                     .await?;
 
                     project_member_ids.push(javier_id.clone());
-                    println!("    ✓ Added Javier Choo to project as {}", role);
+                    log::info!("    ✓ Added Javier Choo to project as {}", role);
                 }
             }
         }
@@ -436,7 +413,7 @@ async fn seed_projects(
         count += 1;
     }
 
-    println!("  ✓ Seeded {} projects with members", count);
+    log::info!("  ✓ Seeded {} projects with members", count);
     Ok(projects_with_members)
 }
 
@@ -446,7 +423,7 @@ async fn seed_events(
     user_ids: &[String],
     email_to_id: &HashMap<String, String>,
 ) -> Result<(), Box<dyn Error>> {
-    println!("📦 Seeding events from {}...", csv_path);
+    log::info!("📦 Seeding events from {}...", csv_path);
 
     let mut rng = thread_rng();
     let (start_date, end_date, _today) = calculate_date_range();
@@ -457,9 +434,7 @@ async fn seed_events(
     let events: Vec<EventCsv> = rdr.deserialize().filter_map(|r| r.ok()).collect();
 
     let mut count = 0;
-    // Create events for multiple days
     for date in dates.iter().step_by(2) {
-        // Every other day
         for event_csv in &events {
             let event_id = generate_uuid();
             let created_by = user_ids.choose(&mut rng).unwrap();
@@ -485,7 +460,6 @@ async fn seed_events(
             .execute(pool)
             .await?;
 
-            // Add 1-3 random attendees
             let num_attendees = rng.gen_range(1..=3);
             let attendees: Vec<_> = user_ids.choose_multiple(&mut rng, num_attendees).collect();
 
@@ -514,9 +488,8 @@ async fn seed_events(
         }
     }
 
-    // === Create 4 events per day for Javier Choo ===
     if let Some(javier_id) = email_to_id.get("javier21choo@gmail.com") {
-        println!("  📌 Creating daily events for Javier Choo...");
+        log::info!("  📌 Creating daily events for Javier Choo...");
 
         let event_templates = [
             (
@@ -558,7 +531,6 @@ async fn seed_events(
 
         let mut javier_event_count = 0;
 
-        // Create 4 events for each day in the date range
         for date in &dates {
             let date_str = date.format("%Y-%m-%d").to_string();
 
@@ -588,7 +560,6 @@ async fn seed_events(
                 .execute(pool)
                 .await?;
 
-                // Add Javier as attendee
                 let ea_id = generate_uuid();
                 sqlx::query(
                     r#"
@@ -608,7 +579,7 @@ async fn seed_events(
             }
         }
 
-        println!(
+        log::info!(
             "    ✓ Created {} events across {} days for Javier (4 per day)",
             javier_event_count,
             dates.len()
@@ -616,7 +587,7 @@ async fn seed_events(
         count += javier_event_count;
     }
 
-    println!("  ✓ Seeded {} events", count);
+    log::info!("  ✓ Seeded {} events", count);
     Ok(())
 }
 
@@ -625,7 +596,7 @@ async fn seed_notifications(
     csv_path: &str,
     user_ids: &[String],
 ) -> Result<(), Box<dyn Error>> {
-    println!("📦 Seeding notifications from {}...", csv_path);
+    log::info!("📦 Seeding notifications from {}...", csv_path);
 
     let mut rng = thread_rng();
 
@@ -635,9 +606,7 @@ async fn seed_notifications(
         rdr.deserialize().filter_map(|r| r.ok()).collect();
 
     let mut count = 0;
-    // Create notifications for each user
     for user_id in user_ids {
-        // Each user gets 1-3 random notifications from templates
         let num_notifications = rng.gen_range(1..=3);
         let selected: Vec<_> = notification_templates
             .choose_multiple(&mut rng, num_notifications)
@@ -666,7 +635,7 @@ async fn seed_notifications(
         }
     }
 
-    println!("  ✓ Seeded {} notifications", count);
+    log::info!("  ✓ Seeded {} notifications", count);
     Ok(())
 }
 
@@ -675,7 +644,7 @@ async fn seed_quick_links(
     csv_path: &str,
     admin_id: &str,
 ) -> Result<(), Box<dyn Error>> {
-    println!("📦 Seeding quick links from {}...", csv_path);
+    log::info!("📦 Seeding quick links from {}...", csv_path);
 
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(csv_path)?;
 
@@ -705,7 +674,7 @@ async fn seed_quick_links(
         count += 1;
     }
 
-    println!("  ✓ Seeded {} quick links", count);
+    log::info!("  ✓ Seeded {} quick links", count);
     Ok(())
 }
 
@@ -714,9 +683,8 @@ async fn seed_glossary(
     csv_path: &str,
     admin_id: &str,
 ) -> Result<(), Box<dyn Error>> {
-    println!("📦 Seeding glossary terms from {}...", csv_path);
+    log::info!("📦 Seeding glossary terms from {}...", csv_path);
 
-    // First create categories
     let categories = vec![
         ("IT", "Information Technology terms"),
         ("Engineering", "Engineering and building systems terms"),
@@ -743,10 +711,9 @@ async fn seed_glossary(
         .await?;
 
         category_map.insert(name.to_string(), cat_id);
-        println!("  ✓ Created category: {}", name);
+        log::info!("  ✓ Created category: {}", name);
     }
 
-    // Read and insert glossary terms
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(csv_path)?;
 
     let mut count = 0;
@@ -755,8 +722,6 @@ async fn seed_glossary(
         let term_id = generate_uuid();
         let category_id = category_map.get(&term.category);
 
-        // Based on actual schema: glossary_terms has acronym, full_name, definition, category_id, created_by, is_approved
-        // The CSV term field is used for both acronym and full_name (as the server does)
         sqlx::query(
             r#"
             INSERT INTO glossary_terms (id, acronym, full_name, definition, category_id, is_approved, created_by, created_at, updated_at)
@@ -764,11 +729,11 @@ async fn seed_glossary(
             "#
         )
         .bind(&term_id)
-        .bind(&term.term)  // acronym
-        .bind(&term.term)  // full_name (same as acronym, following server pattern)
+        .bind(&term.term)
+        .bind(&term.term)
         .bind(&term.definition)
         .bind(category_id)
-        .bind(true)  // is_approved
+        .bind(true)
         .bind(admin_id)
         .bind(now_str())
         .bind(now_str())
@@ -778,13 +743,10 @@ async fn seed_glossary(
         count += 1;
     }
 
-    println!("  ✓ Seeded {} glossary terms", count);
+    log::info!("  ✓ Seeded {} glossary terms", count);
     Ok(())
 }
 
-/// Seed tasks with two modes:
-/// 1. "random" - Assign random members to each task
-/// 2. "project" - Assign a random project and all its members to the task
 async fn seed_tasks(
     pool: &SqlitePool,
     csv_path: &str,
@@ -793,21 +755,18 @@ async fn seed_tasks(
     email_to_id: &HashMap<String, String>,
     mode: &str,
 ) -> Result<(), Box<dyn Error>> {
-    println!("📦 Seeding tasks from {} (mode: {})...", csv_path, mode);
+    log::info!("📦 Seeding tasks from {} (mode: {})...", csv_path, mode);
 
     let mut rng = thread_rng();
     let (start_date, end_date, today) = calculate_date_range();
     let dates = generate_date_range(start_date, end_date);
 
-    // Get admin user for created_by
     let admin_id = user_ids.first().cloned().unwrap_or_else(generate_uuid);
 
-    // Read task templates from CSV
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(csv_path)?;
 
     let task_templates: Vec<TaskCsv> = rdr.deserialize().filter_map(|r| r.ok()).collect();
 
-    // Filter tasks by department
     let it_tasks: Vec<_> = task_templates
         .iter()
         .filter(|t| t.department == "IT")
@@ -823,16 +782,12 @@ async fn seed_tasks(
 
     let mut count = 0;
 
-    // Distribute tasks across dates
     for date in &dates {
-        // 2-4 tasks per day
         let tasks_per_day = rng.gen_range(2..=4);
 
         for _ in 0..tasks_per_day {
-            // Randomly select department and corresponding task
             let (task_template, department) = match rng.gen_range(0..10) {
                 0..=3 => {
-                    // IT task (40%)
                     if let Some(t) = it_tasks.choose(&mut rng) {
                         (*t, "IT")
                     } else {
@@ -840,7 +795,6 @@ async fn seed_tasks(
                     }
                 }
                 4..=7 => {
-                    // Engineering task (40%)
                     if let Some(t) = eng_tasks.choose(&mut rng) {
                         (*t, "Engineering")
                     } else {
@@ -848,7 +802,6 @@ async fn seed_tasks(
                     }
                 }
                 _ => {
-                    // Both department task (20%)
                     if let Some(t) = both_tasks.choose(&mut rng) {
                         (*t, "Both")
                     } else if let Some(t) = it_tasks.choose(&mut rng) {
@@ -861,10 +814,8 @@ async fn seed_tasks(
 
             let task_id = generate_uuid();
 
-            // Determine status based on date relative to today
             let (status, is_completed) = determine_task_status(*date, today);
 
-            // Randomly select urgency (or use from template)
             let urgency: &str = if rng.gen_bool(0.7) {
                 &task_template.urgency
             } else {
@@ -873,14 +824,12 @@ async fn seed_tasks(
                     .unwrap()
             };
 
-            // Determine project and assignees based on mode
             let (project_id, assignee_id, assignee_ids): (
                 Option<String>,
                 Option<String>,
                 Vec<String>,
             ) = match mode {
                 "project" => {
-                    // Mode: Assign to a project and use all project members
                     if let Some((proj_id, members)) = projects_with_members.choose(&mut rng) {
                         let primary_assignee = members.choose(&mut rng).cloned();
                         (Some(proj_id.clone()), primary_assignee, members.clone())
@@ -890,14 +839,11 @@ async fn seed_tasks(
                     }
                 }
                 _ => {
-                    // Mode: Random - 30% chance to assign to a project
                     if rng.gen_bool(0.3) {
-                        // When assigning to a project, use ALL project members
                         if let Some((proj_id, members)) = projects_with_members.choose(&mut rng) {
                             let primary_assignee = members.choose(&mut rng).cloned();
                             (Some(proj_id.clone()), primary_assignee, members.clone())
                         } else {
-                            // No projects available, assign 1-3 random members
                             let num_assignees = rng.gen_range(1..=3);
                             let selected: Vec<String> = user_ids
                                 .choose_multiple(&mut rng, num_assignees)
@@ -907,7 +853,6 @@ async fn seed_tasks(
                             (None, primary, selected)
                         }
                     } else {
-                        // No project - assign 1-3 random members
                         let num_assignees = rng.gen_range(1..=3);
                         let selected: Vec<String> = user_ids
                             .choose_multiple(&mut rng, num_assignees)
@@ -919,7 +864,6 @@ async fn seed_tasks(
                 }
             };
 
-            // Calculate completed_at for completed tasks
             let completed_at = if is_completed {
                 Some(
                     NaiveDateTime::new(
@@ -934,14 +878,12 @@ async fn seed_tasks(
                 None
             };
 
-            // Calculate created_at (1-3 days before deadline)
             let days_before = rng.gen_range(1..=3);
             let created_at = (*date - Duration::days(days_before))
                 .format("%Y-%m-%d")
                 .to_string()
                 + " 09:00:00";
 
-            // Insert task
             sqlx::query(
                 r#"
                 INSERT INTO tasks (id, title, description, urgency, status, is_completed, department, project_id, assignee_id, created_by, deadline, completed_at, created_at, updated_at)
@@ -965,7 +907,6 @@ async fn seed_tasks(
             .execute(pool)
             .await?;
 
-            // Insert task assignees
             for user_id in &assignee_ids {
                 let ta_id = generate_uuid();
                 sqlx::query(
@@ -987,10 +928,8 @@ async fn seed_tasks(
         }
     }
 
-    // === Create 4 tasks per day for Javier Choo ===
-    // Ensures Javier has at least 4 tasks assigned for every day in the date range
     if let Some(javier_id) = email_to_id.get("javier21choo@gmail.com") {
-        println!("  📌 Creating daily tasks for Javier Choo...");
+        log::info!("  📌 Creating daily tasks for Javier Choo...");
 
         let task_templates = [
             (
@@ -1015,13 +954,11 @@ async fn seed_tasks(
 
         let mut javier_task_count = 0;
 
-        // Create 4 tasks for each day in the date range
         for date in &dates {
             let date_str = date.format("%Y-%m-%d").to_string();
             let created_at =
                 (*date - Duration::days(1)).format("%Y-%m-%d").to_string() + " 09:00:00";
 
-            // Determine status based on date relative to today
             let (status, is_completed) = determine_task_status(*date, today);
             let completed_at = if is_completed {
                 Some(
@@ -1037,12 +974,10 @@ async fn seed_tasks(
                 None
             };
 
-            // Create exactly 4 tasks for this day
             for i in 0..4 {
                 let (title, department, urgency) = task_templates[i % task_templates.len()];
                 let task_id = generate_uuid();
 
-                // 50% chance to assign to a project
                 let project_id = if rng.gen_bool(0.5) {
                     projects_with_members
                         .choose(&mut rng)
@@ -1074,7 +1009,6 @@ async fn seed_tasks(
                 .execute(pool)
                 .await?;
 
-                // Add Javier as task assignee
                 let ta_id = generate_uuid();
                 sqlx::query(
                     r#"
@@ -1093,7 +1027,7 @@ async fn seed_tasks(
                 javier_task_count += 1;
             }
         }
-        println!(
+        log::info!(
             "    ✓ Created {} tasks across {} days for Javier (4 per day)",
             javier_task_count,
             dates.len()
@@ -1101,7 +1035,7 @@ async fn seed_tasks(
         count += javier_task_count;
     }
 
-    println!("  ✓ Seeded {} tasks across {} days", count, dates.len());
+    log::info!("  ✓ Seeded {} tasks across {} days", count, dates.len());
     Ok(())
 }
 
@@ -1110,7 +1044,7 @@ async fn seed_check_in_records(
     user_ids: &[String],
     locations: &[String],
 ) -> Result<(), Box<dyn Error>> {
-    println!("📦 Generating check-in records...");
+    log::info!("📦 Generating check-in records...");
 
     let mut rng = thread_rng();
     let (start_date, _end_date, today) = calculate_date_range();
@@ -1119,14 +1053,11 @@ async fn seed_check_in_records(
     let mut count = 0;
 
     for user_id in user_ids {
-        // Generate check-ins for past dates (skip weekends roughly)
         for date in &dates {
-            // Skip if date is in the future
             if *date > today {
                 continue;
             }
 
-            // 80% chance to have a check-in on any given day
             if !rng.gen_bool(0.8) {
                 continue;
             }
@@ -1134,7 +1065,6 @@ async fn seed_check_in_records(
             let location = locations.choose(&mut rng).unwrap();
             let device_type = DEVICE_TYPES.choose(&mut rng).unwrap();
 
-            // Random check-in time between 7:00 and 10:00
             let check_in_hour = rng.gen_range(7..10);
             let check_in_minute = rng.gen_range(0..60);
             let check_in_time = NaiveDateTime::new(
@@ -1142,12 +1072,11 @@ async fn seed_check_in_records(
                 NaiveTime::from_hms_opt(check_in_hour, check_in_minute, 0).unwrap(),
             );
 
-            // Check-out time (if not today) - 8-10 hours later
             let check_out_time = if *date < today {
                 let hours_worked = rng.gen_range(8..=10);
                 Some(check_in_time + Duration::hours(hours_worked))
             } else {
-                None // Today - might still be checked in
+                None
             };
 
             let record_id = generate_uuid();
@@ -1188,8 +1117,7 @@ async fn seed_check_in_records(
             count += 1;
         }
 
-        // Update user_locations for current status
-        let is_today_checkin = rng.gen_bool(0.6); // 60% chance user is checked in today
+        let is_today_checkin = rng.gen_bool(0.6);
         if is_today_checkin {
             let location = locations.choose(&mut rng).unwrap();
             let check_in_time = NaiveDateTime::new(
@@ -1213,7 +1141,7 @@ async fn seed_check_in_records(
         }
     }
 
-    println!("  ✓ Generated {} check-in records", count);
+    log::info!("  ✓ Generated {} check-in records", count);
     Ok(())
 }
 
@@ -1222,7 +1150,7 @@ async fn seed_bookings(
     equipment_ids: &[String],
     user_ids: &[String],
 ) -> Result<(), Box<dyn Error>> {
-    println!("📦 Generating equipment bookings...");
+    log::info!("📦 Generating equipment bookings...");
 
     let mut rng = thread_rng();
     let (start_date, _end_date, today) = calculate_date_range();
@@ -1242,9 +1170,7 @@ async fn seed_bookings(
 
     let mut count = 0;
 
-    // Generate bookings for a subset of equipment
     for equipment_id in equipment_ids.iter().take(8) {
-        // 1-3 bookings per equipment
         let num_bookings = rng.gen_range(1..=3);
 
         for i in 0..num_bookings {
@@ -1252,18 +1178,16 @@ async fn seed_bookings(
             let purpose = purposes.choose(&mut rng).unwrap();
             let department = departments.choose(&mut rng).unwrap();
 
-            // Calculate booking dates
             let booking_start = start_date + Duration::days(rng.gen_range(0..15) + (i * 7) as i64);
             let booking_duration = rng.gen_range(1..=5);
             let booking_end = booking_start + Duration::days(booking_duration);
 
-            // Determine status based on dates
             let status = if booking_end < today {
                 "completed"
             } else if booking_start <= today && booking_end >= today {
                 "active"
             } else {
-                "active" // Future bookings are active
+                "active"
             };
 
             let booking_id = generate_uuid();
@@ -1291,14 +1215,13 @@ async fn seed_bookings(
         }
     }
 
-    println!("  ✓ Generated {} equipment bookings", count);
+    log::info!("  ✓ Generated {} equipment bookings", count);
     Ok(())
 }
 
 async fn clear_data(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
-    println!("🗑️  Clearing existing data...");
+    log::info!("🗑️  Clearing existing data...");
 
-    // Delete in order respecting foreign keys
     let tables = [
         "notification_preferences",
         "notifications",
@@ -1319,7 +1242,6 @@ async fn clear_data(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
         "event_attendees",
         "events",
         "sessions",
-        // Don't delete users to preserve admin
     ];
 
     for table in tables {
@@ -1328,109 +1250,91 @@ async fn clear_data(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
             .await?;
     }
 
-    // Delete non-admin users
     sqlx::query("DELETE FROM users WHERE email != 'admin@company.com'")
         .execute(pool)
         .await?;
 
-    println!("  ✓ Cleared all data");
+    log::info!("  ✓ Cleared all data");
     Ok(())
 }
 
-// ============================================================================
-// MAIN
-// ============================================================================
+/// Main seeding function that can be called from the application
+/// Extremely Destructive: This will DELETE existing data before seeding!
+/// for prototyping and testing purposes only.
+/// DO NOT USE IN PRODUCTION!
+pub async fn run_seeder(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
+    log::info!("🌱 Database Seeder");
+    log::info!("==================");
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    // Load environment variables
-    dotenvy::dotenv().ok();
+    // Always clear data on startup to ensure fresh seeding
+    log::info!("🗑️  Clearing existing database data...");
+    clear_data(pool).await?;
 
-    println!("🌱 Database Seeder");
-    println!("==================");
+    log::info!("📝 Starting seeding process...");
 
-    // Calculate dynamic date range
     let (start_date, end_date, today) = calculate_date_range();
-    println!(
+    log::info!(
         "Date range: {} to {} ({} days)",
         start_date.format("%Y-%m-%d"),
         end_date.format("%Y-%m-%d"),
         (end_date - start_date).num_days() + 1
     );
-    println!("Today: {}", today.format("%Y-%m-%d"));
+    log::info!("Today: {}", today.format("%Y-%m-%d"));
 
-    // Get configuration from environment
     let task_mode = env::var("SEED_TASK_MODE").unwrap_or_else(|_| "random".to_string());
-    let clear_data_flag =
-        env::var("SEED_CLEAR_DATA").unwrap_or_else(|_| "true".to_string()) == "true";
 
-    println!("Task assignment mode: {}", task_mode);
-    println!("Clear existing data: {}", clear_data_flag);
-    println!();
+    log::info!("Task assignment mode: {}", task_mode);
 
-    // Connect to database
-    let database_url =
-        env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./database.db".to_string());
+    // Determine base path - check if we're running from workspace root or backend dir
+    let base_path = if std::path::Path::new("backend/src/data").exists() {
+        "" // Running from workspace root
+    } else if std::path::Path::new("src/data").exists() {
+        "../" // Running from backend directory
+    } else {
+        return Err("Cannot find data directory. Please run from workspace root.".into());
+    };
 
-    println!("Connecting to database: {}", database_url);
-    let pool = SqlitePool::connect(&database_url).await?;
-    println!("✓ Connected to database\n");
+    let data_dir = format!("{}backend/src/data", base_path);
+    let glossary_path = format!("{}frontend/public/glossary-terms.csv", base_path);
 
-    // Clear existing data if requested
-    if clear_data_flag {
-        clear_data(&pool).await?;
-        println!();
-    }
+    log::info!("📂 Using data directory: {}", data_dir);
 
-    // Define paths to CSV files
-    let data_dir = "src/data";
-    let glossary_path = "../frontend/public/glossary-terms.csv";
-
-    // Load locations from CSV
     let locations = load_locations(&format!("{}/locations.csv", data_dir))?;
-    println!("📍 Loaded {} locations from CSV", locations.len());
+    log::info!("📍 Loaded {} locations from CSV", locations.len());
 
-    // Seed users first (needed for foreign keys)
-    let email_to_id = seed_users(&pool, &format!("{}/users.csv", data_dir)).await?;
+    let email_to_id = seed_users(pool, &format!("{}/users.csv", data_dir)).await?;
     let user_ids: Vec<String> = email_to_id.values().cloned().collect();
     let admin_id = email_to_id
         .get("admin@company.com")
         .cloned()
         .unwrap_or_else(|| user_ids.first().cloned().unwrap());
 
-    // Seed equipment
-    let equipment_ids = seed_equipment(&pool, &format!("{}/equipment.csv", data_dir)).await?;
+    let equipment_ids = seed_equipment(pool, &format!("{}/equipment.csv", data_dir)).await?;
 
-    // Seed projects with members
     let projects_with_members = seed_projects(
-        &pool,
+        pool,
         &format!("{}/projects.csv", data_dir),
         &email_to_id,
         &user_ids,
     )
     .await?;
 
-    // Seed events
     seed_events(
-        &pool,
+        pool,
         &format!("{}/events.csv", data_dir),
         &user_ids,
         &email_to_id,
     )
     .await?;
 
-    // Seed notifications
-    seed_notifications(&pool, &format!("{}/notifications.csv", data_dir), &user_ids).await?;
+    seed_notifications(pool, &format!("{}/notifications.csv", data_dir), &user_ids).await?;
 
-    // Seed quick links
-    seed_quick_links(&pool, &format!("{}/quick_links.csv", data_dir), &admin_id).await?;
+    seed_quick_links(pool, &format!("{}/quick_links.csv", data_dir), &admin_id).await?;
 
-    // Seed glossary terms
-    seed_glossary(&pool, glossary_path, &admin_id).await?;
+    seed_glossary(pool, &glossary_path, &admin_id).await?;
 
-    // Seed tasks with specified mode
     seed_tasks(
-        &pool,
+        pool,
         &format!("{}/tasks.csv", data_dir),
         &user_ids,
         &projects_with_members,
@@ -1439,24 +1343,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    // Generate check-in records
-    seed_check_in_records(&pool, &user_ids, &locations).await?;
+    seed_check_in_records(pool, &user_ids, &locations).await?;
 
-    // Generate equipment bookings
-    seed_bookings(&pool, &equipment_ids, &user_ids).await?;
+    seed_bookings(pool, &equipment_ids, &user_ids).await?;
 
-    println!();
-    println!("✅ Database seeding completed successfully!");
-    println!();
-    println!("Summary:");
-    println!("  - Users: {}", user_ids.len());
-    println!("  - Equipment: {}", equipment_ids.len());
-    println!("  - Projects: {}", projects_with_members.len());
-    println!("  - Locations: {}", locations.len());
-    println!();
-    println!("To run the seeder again with different options:");
-    println!("  SEED_TASK_MODE=project cargo run --bin seed_database");
-    println!("  SEED_CLEAR_DATA=false cargo run --bin seed_database");
+    log::info!("");
+    log::info!("✅ Database seeding completed successfully!");
+    log::info!("");
+    log::info!("Summary:");
+    log::info!("  - Users: {}", user_ids.len());
+    log::info!("  - Equipment: {}", equipment_ids.len());
+    log::info!("  - Projects: {}", projects_with_members.len());
+    log::info!("  - Locations: {}", locations.len());
 
     Ok(())
 }
