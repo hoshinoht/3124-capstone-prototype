@@ -67,3 +67,12 @@ Air quality monitoring setup,Configure new air quality monitors,medium,pending,0
 Network switch firmware update,Update firmware on core switches,high,pending,0,IT,2025-12-16
 Damper actuator replacement,Replace faulty damper actuators in AHU-2,urgent,pending,0,Engineering,2025-12-16
 Security camera audit,Audit security camera coverage and functionality,medium,pending,0,IT,2025-12-16
+**Access control system audit,Review keycard access logs for restricted areas,high,pending,0,Security,2025-12-17**
+**Budget review: Q4 CapEx,Review and finalize Q4 capital expenditure requests,medium,pending,0,Both,2025-12-17**
+**Guard tour system check,Verify all checkpoints are operational on the guard tour system,low,pending,0,Security,2025-12-17**
+**Invoice processing,Process vendor invoices for November maintenance contracts,medium,pending,0,IT,2025-12-18**
+**CCTV storage verification,Verify video retention and storage capacity for CCTV system,medium,pending,0,Security,2025-12-18**
+**Review maintenance budget,Analyze YTD spending vs. budget for facilities maintenance,high,pending,0,Engineering,2025-12-19**
+**Security policy update,Review and update physical security policies,medium,pending,0,Security,2025-12-19**
+**Contract renewal check,Review maintenance contracts due for renewal in Q1 2026,medium,pending,0,Both,2025-12-20**
+**Physical security patrol,Conduct a full security patrol and check exterior lights,low,pending,0,Security,2025-12-20**

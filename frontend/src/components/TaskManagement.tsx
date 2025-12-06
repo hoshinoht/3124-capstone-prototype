@@ -123,7 +123,7 @@ export function TaskManagement() {
 
         // Fetch active (non-completed) tasks
         try {
-          const response = await tasksApi.getAll({ isCompleted: false });
+          const response = await tasksApi.getAll({ isCompleted: false, limit: 10000 });
           if (response.data?.tasks) {
             setTasks(response.data.tasks.map((t: any) => ({
               id: t.id,

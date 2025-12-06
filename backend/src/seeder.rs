@@ -18,8 +18,8 @@ use uuid::Uuid;
 // CONFIGURATION CONSTANTS
 // ============================================================================
 
-const DAYS_BEFORE_TODAY: i64 = 20;
-const DAYS_AFTER_TODAY: i64 = 20;
+const DAYS_BEFORE_TODAY: i64 = 150;
+const DAYS_AFTER_TODAY: i64 = 150;
 const DEVICE_TYPES: &[&str] = &["desktop", "mobile"];
 
 // ============================================================================
@@ -1219,6 +1219,60 @@ async fn seed_bookings(
     Ok(())
 }
 
+async fn initialize_schema(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
+    log::info!("🔧 Initializing database schema...");
+
+    // Determine base path for schema.sql
+    let base_path = if std::path::Path::new("backend/schema.sql").exists() {
+        "backend/schema.sql"
+    } else if std::path::Path::new("schema.sql").exists() {
+        "schema.sql"
+    } else {
+        return Err("Cannot find schema.sql file".into());
+    };
+
+    // Read schema file
+    let schema = std::fs::read_to_string(base_path)?;
+
+    // Parse and execute SQL statements
+    let mut current_statement = String::new();
+
+    for line in schema.lines() {
+        let trimmed = line.trim();
+
+        // Skip empty lines and comment-only lines
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            continue;
+        }
+
+        // Add line to current statement
+        current_statement.push_str(line);
+        current_statement.push('\n');
+
+        // If line ends with semicolon, execute the statement
+        if trimmed.ends_with(';') {
+            let stmt = current_statement.trim();
+            if !stmt.is_empty() {
+                match sqlx::query(stmt).execute(pool).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::warn!(
+                            "Warning executing statement: {} - Error: {}",
+                            &stmt[..stmt.len().min(100)],
+                            e
+                        );
+                        // Continue anyway - some statements might fail if tables already exist
+                    }
+                }
+            }
+            current_statement.clear();
+        }
+    }
+
+    log::info!("  ✓ Database schema initialized");
+    Ok(())
+}
+
 async fn clear_data(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
     log::info!("🗑️  Clearing existing data...");
 
@@ -1265,6 +1319,9 @@ async fn clear_data(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
 pub async fn run_seeder(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
     log::info!("🌱 Database Seeder");
     log::info!("==================");
+
+    // Initialize schema first
+    initialize_schema(pool).await?;
 
     // Always clear data on startup to ensure fresh seeding
     log::info!("🗑️  Clearing existing database data...");

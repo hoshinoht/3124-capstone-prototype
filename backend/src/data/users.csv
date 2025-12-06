@@ -1,11 +1,17 @@
 email,password,first_name,last_name,department,role,is_active
-michael.chen@company.com,password123,Michael,Chen,Engineering,Member,1
-sarah.johnson@company.com,password123,Sarah,Johnson,Engineering,Member,1
-david.park@company.com,password123,David,Park,Engineering,Member,1
-emily.rodriguez@company.com,password123,Emily,Rodriguez,IT,Member,1
-james.wilson@company.com,password123,James,Wilson,IT,Member,1
-lisa.anderson@company.com,password123,Lisa,Anderson,Engineering,Member,1
-robert.martinez@company.com,admin123,Robert,Martinez,IT,Admin,1
-jennifer.lee@company.com,password123,Jennifer,Lee,Both,Member,1
-william.taylor@company.com,password123,William,Taylor,Engineering,Viewer,1
+wei.tan@company.com,password123,Wei,Tan,Engineering,Member,1
+nurul.azman@company.com,password123,Nurul,Azman,Engineering,Member,1
+suresh.kumar@company.com,password123,Suresh,Kumar,Engineering,Member,1
+siti.rahman@company.com,password123,Siti,Rahman,IT,Member,1
+alvin.lim@company.com,password123,Alvin,Lim,IT,Member,1
+chloe.goh@company.com,password123,Chloe,Goh,Engineering,Member,1
+mohan.singh@company.com,admin123,Mohan,Singh,IT,Admin,1
+li.ying@company.com,password123,Li,Ying,Both,Member,1
+hadi.bin.omar@company.com,password123,Hadi,Bin Omar,Engineering,Viewer,1
+karen.wee@gmail.com,karen123,Karen,Wee,Engineering,Member,1
+eunice.low@company.com,password123,Eunice,Low,IT,Member,1
+amirul.rasyid@company.com,password123,Amirul,Rasyid,Engineering,Member,1
+priya.devi@company.com,password123,Priya,Devi,IT,Member,1
+jason.wong@company.com,password123,Jason,Wong,Engineering,Member,1
+admin@company.com,admin123,Admin,User,IT,Admin,1
 javier21choo@gmail.com,javier21,Javier,Choo,Engineering,Member,1
