@@ -9,4 +9,5 @@ pub mod projects;
 pub mod quick_links;
 pub mod search;
 pub mod tasks;
+pub mod tracking;
 pub mod users;

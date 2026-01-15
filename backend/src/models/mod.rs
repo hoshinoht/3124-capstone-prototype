@@ -7,4 +7,5 @@ pub mod projects;
 pub mod quick_links;
 pub mod sessions;
 pub mod tasks;
+pub mod tracking;
 pub mod users;

@@ -385,6 +385,22 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
 
 CREATE INDEX IF NOT EXISTS idx_notif_prefs_user ON notification_preferences(user_id);
 
+-- 9. User Tracking (for tracking other users' check-ins)
+
+CREATE TABLE IF NOT EXISTS user_tracking (
+    id TEXT PRIMARY KEY,
+    tracker_user_id TEXT NOT NULL,
+    tracked_user_id TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (tracker_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (tracked_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (tracker_user_id, tracked_user_id),
+    CHECK (tracker_user_id != tracked_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_tracking_tracker ON user_tracking(tracker_user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tracking_tracked ON user_tracking(tracked_user_id);
+
 -- Insert a default admin user (password: admin123)
 -- Note: In production, use proper password hashing
 INSERT OR IGNORE INTO users (id, email, password_hash, first_name, last_name, department, role, is_active)

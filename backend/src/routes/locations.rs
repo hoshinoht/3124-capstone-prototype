@@ -6,6 +6,7 @@ use crate::models::locations::{
     CheckInRecord, CheckInRequest, CheckOutRequest, GetLocationsQuery, LocationHistoryQuery,
     detect_device_type,
 };
+use crate::routes::tracking::get_trackers_for_user;
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -100,16 +101,47 @@ async fn check_in(
         "IT".to_string(),
     ));
 
+    let check_in_time = chrono::Utc::now()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string();
+    let user_full_name = format!("{} {}", first_name, last_name);
+
+    // Notify all users who are tracking this user
+    if let Ok(tracker_ids) = get_trackers_for_user(pool.get_ref(), &user_id).await {
+        for tracker_id in tracker_ids {
+            let notification_id = Uuid::new_v4().to_string();
+            let title = format!("{} has checked in", user_full_name);
+            let message = format!(
+                "{} checked in at {} on {}",
+                user_full_name,
+                body.location,
+                chrono::Utc::now().format("%Y-%m-%d %H:%M UTC")
+            );
+
+            let _ = sqlx::query(
+                r#"INSERT INTO notifications (id, user_id, type, title, message, related_entity_type, related_entity_id) 
+                   VALUES (?, ?, 'info', ?, ?, 'check_in', ?)"#
+            )
+            .bind(&notification_id)
+            .bind(&tracker_id)
+            .bind(&title)
+            .bind(&message)
+            .bind(&record_id)
+            .execute(pool.get_ref())
+            .await;
+        }
+    }
+
     HttpResponse::Created().json(serde_json::json!({
         "success": true,
         "data": {
             "checkIn": {
                 "id": record_id,
                 "userId": user_id,
-                "userName": format!("{} {}", first_name, last_name),
+                "userName": user_full_name,
                 "department": department,
                 "location": body.location,
-                "checkInTime": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+                "checkInTime": check_in_time,
                 "notes": body.notes,
                 "deviceType": device_type,
                 "status": "active"
@@ -177,19 +209,64 @@ async fn check_out(
                 .await;
 
             match result {
-                Ok(_) => HttpResponse::Ok().json(serde_json::json!({
-                    "success": true,
-                    "message": "Checked out successfully",
-                    "data": {
-                        "checkIn": {
-                            "id": record.id,
-                            "location": record.location,
-                            "checkInTime": record.check_in_time,
-                            "checkOutTime": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
-                            "status": "completed"
+                Ok(_) => {
+                    // Get user info for notification
+                    let user = sqlx::query_as::<_, (String, String)>(
+                        "SELECT first_name, last_name FROM users WHERE id = ?",
+                    )
+                    .bind(&user_id)
+                    .fetch_optional(pool.get_ref())
+                    .await;
+
+                    let (first_name, last_name) = user
+                        .ok()
+                        .flatten()
+                        .unwrap_or(("Unknown".to_string(), "User".to_string()));
+                    let user_full_name = format!("{} {}", first_name, last_name);
+                    let check_out_time = chrono::Utc::now()
+                        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                        .to_string();
+
+                    // Notify all users who are tracking this user
+                    if let Ok(tracker_ids) = get_trackers_for_user(pool.get_ref(), &user_id).await {
+                        for tracker_id in tracker_ids {
+                            let notification_id = Uuid::new_v4().to_string();
+                            let title = format!("{} has checked out", user_full_name);
+                            let message = format!(
+                                "{} checked out from {} on {}",
+                                user_full_name,
+                                record.location,
+                                chrono::Utc::now().format("%Y-%m-%d %H:%M UTC")
+                            );
+
+                            let _ = sqlx::query(
+                                r#"INSERT INTO notifications (id, user_id, type, title, message, related_entity_type, related_entity_id) 
+                                   VALUES (?, ?, 'info', ?, ?, 'check_out', ?)"#
+                            )
+                            .bind(&notification_id)
+                            .bind(&tracker_id)
+                            .bind(&title)
+                            .bind(&message)
+                            .bind(&record.id)
+                            .execute(pool.get_ref())
+                            .await;
                         }
                     }
-                })),
+
+                    HttpResponse::Ok().json(serde_json::json!({
+                        "success": true,
+                        "message": "Checked out successfully",
+                        "data": {
+                            "checkIn": {
+                                "id": record.id,
+                                "location": record.location,
+                                "checkInTime": record.check_in_time,
+                                "checkOutTime": check_out_time,
+                                "status": "completed"
+                            }
+                        }
+                    }))
+                }
                 Err(e) => {
                     eprintln!("Database error: {:?}", e);
                     HttpResponse::InternalServerError().json(serde_json::json!({

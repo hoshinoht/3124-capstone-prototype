@@ -14,6 +14,7 @@ mod models {
     pub mod quick_links;
     pub mod sessions;
     pub mod tasks;
+    pub mod tracking;
     pub mod users;
 }
 
@@ -29,6 +30,7 @@ mod routes {
     pub mod quick_links;
     pub mod search;
     pub mod tasks;
+    pub mod tracking;
     pub mod users;
 }
 
@@ -38,7 +40,7 @@ use log::info;
 use middleware::{auth::Auth, logging::Logger};
 use routes::{
     auth, dashboard, equipment, events, glossary, locations, notifications, projects, quick_links,
-    search, tasks, users,
+    search, tasks, tracking, users,
 };
 
 use sqlx::SqlitePool;
@@ -124,7 +126,8 @@ async fn main() -> std::io::Result<()> {
                     .configure(glossary::configure_routes)
                     .configure(notifications::configure_routes)
                     .configure(projects::configure_routes)
-                    .configure(search::configure_routes),
+                    .configure(search::configure_routes)
+                    .configure(tracking::configure_routes),
             )
     })
     .bind(("127.0.0.1", 8080))?

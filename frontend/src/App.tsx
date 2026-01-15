@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Calendar, CheckSquare, Package, MapPin, BookOpen, Bell, LogOut, User, Users, FolderKanban } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Calendar, CheckSquare, Package, MapPin, BookOpen, Bell, LogOut, User, Users, FolderKanban, UserPlus } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
@@ -14,7 +14,9 @@ import { NotificationCenter } from "./components/NotificationCenter";
 import { Personnel } from "./components/Personnel";
 import { Projects } from "./components/Projects";
 import { Profile } from "./components/Profile";
-import { tasksApi, eventsApi, equipmentApi, User as UserType } from "./services/api";
+import { UserTracking } from "./components/UserTracking";
+import { tasksApi, eventsApi, equipmentApi, notificationsApi, ApiNotification, User as UserType } from "./services/api";
+import { useWebPush } from "./services/webPushService";
 
 interface Notification {
   id: number;
@@ -30,6 +32,64 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
+
+  // Web push notifications
+  const { permission, isSupported, requestPermission, showNotification } = useWebPush();
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const seenNotificationIds = useRef<Set<string>>(new Set());
+
+  // Request notification permission on mount if authenticated
+  useEffect(() => {
+    if (isAuthenticated && isSupported && permission === 'default') {
+      // Auto-request permission (you could also add a UI button for this)
+      requestPermission().then(p => {
+        setPushEnabled(p === 'granted');
+      });
+    } else if (permission === 'granted') {
+      setPushEnabled(true);
+    }
+  }, [isAuthenticated, isSupported, permission, requestPermission]);
+
+  // Poll for new check-in/check-out notifications and show browser notifications
+  useEffect(() => {
+    if (!isAuthenticated || !pushEnabled) return;
+
+    const checkForNewNotifications = async () => {
+      try {
+        const response = await notificationsApi.getUnread();
+        if (response.success && response.data?.notifications) {
+          // Filter for check-in and check-out notifications
+          const trackingNotifications = response.data.notifications.filter(
+            (n: ApiNotification) => n.relatedEntityType === 'check_in' || n.relatedEntityType === 'check_out'
+          );
+
+          for (const notification of trackingNotifications) {
+            // Only show browser notification if we haven't seen this one before
+            if (!seenNotificationIds.current.has(notification.id)) {
+              seenNotificationIds.current.add(notification.id);
+
+              // Show browser notification
+              showNotification({
+                title: notification.title,
+                body: notification.message,
+                tag: `tracking-${notification.id}`,
+                icon: '/favicon.ico',
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check for new notifications:', err);
+      }
+    };
+
+    // Check immediately
+    checkForNewNotifications();
+
+    // Poll every 30 seconds
+    const interval = setInterval(checkForNewNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, pushEnabled, showNotification]);
 
   // Generate notifications from tasks and events
   useEffect(() => {
@@ -201,6 +261,7 @@ export default function App() {
     { id: "tasks", label: "Tasks", icon: CheckSquare },
     { id: "projects", label: "Projects", icon: FolderKanban },
     { id: "personnel", label: "Personnel", icon: Users },
+    { id: "tracking", label: "Tracking", icon: UserPlus },
     { id: "equipment", label: "Equipment", icon: Package },
     { id: "location", label: "Location", icon: MapPin },
     { id: "glossary", label: "Glossary", icon: BookOpen },
@@ -248,6 +309,26 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Push notification toggle */}
+              {isSupported && (
+                <button
+                  onClick={async () => {
+                    if (permission !== 'granted') {
+                      const p = await requestPermission();
+                      setPushEnabled(p === 'granted');
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${pushEnabled
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  title={pushEnabled ? 'Push notifications enabled' : 'Click to enable push notifications'}
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>{pushEnabled ? 'Push On' : 'Push Off'}</span>
+                </button>
+              )}
+
               {/* User info - clickable to go to profile */}
               <button
                 onClick={() => setActiveTab("profile")}
@@ -314,6 +395,7 @@ export default function App() {
           {activeTab === "tasks" && <TaskManagement />}
           {activeTab === "projects" && <Projects />}
           {activeTab === "personnel" && <Personnel />}
+          {activeTab === "tracking" && <UserTracking />}
           {activeTab === "equipment" && <EquipmentBooking />}
           {activeTab === "location" && <LocationTracker />}
           {activeTab === "glossary" && <Glossary />}

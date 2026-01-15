@@ -482,9 +482,31 @@ export const glossaryApi = {
 };
 
 // Notifications API
+export interface ApiNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  isRead: boolean;
+  createdAt?: string;
+}
+
 export const notificationsApi = {
-  getAll: async (): Promise<{ success: boolean; data: { notifications: any[] } }> => {
-    return apiRequest('/notifications');
+  getAll: async (params?: { unreadOnly?: boolean; type?: string; limit?: number }): Promise<{ success: boolean; data: { notifications: ApiNotification[]; total: number } }> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      if (params.unreadOnly) searchParams.append('unreadOnly', 'true');
+      if (params.type) searchParams.append('notificationType', params.type);
+      if (params.limit) searchParams.append('limit', String(params.limit));
+    }
+    const query = searchParams.toString();
+    return apiRequest(`/notifications${query ? `?${query}` : ''}`);
+  },
+
+  getUnread: async (): Promise<{ success: boolean; data: { notifications: ApiNotification[]; total: number } }> => {
+    return apiRequest('/notifications?unreadOnly=true');
   },
 
   markAsRead: async (notificationId: string): Promise<{ success: boolean }> => {
@@ -493,6 +515,10 @@ export const notificationsApi = {
 
   markAllAsRead: async (): Promise<{ success: boolean }> => {
     return apiRequest('/notifications/read-all', { method: 'PATCH' });
+  },
+
+  delete: async (notificationId: string): Promise<{ success: boolean }> => {
+    return apiRequest(`/notifications/${notificationId}`, { method: 'DELETE' });
   },
 };
 
@@ -708,6 +734,54 @@ export const quickLinksApi = {
   },
 };
 
+// User Tracking API
+export interface TrackedUser {
+  id: string;
+  trackedUserId: string;
+  trackedUserName: string;
+  trackedUserEmail: string;
+  trackedUserDepartment: string;
+  createdAt?: string;
+}
+
+export interface Tracker {
+  id: string;
+  trackerUserId: string;
+  trackerUserName: string;
+  trackerUserEmail: string;
+  createdAt?: string;
+}
+
+export const trackingApi = {
+  // Get list of users the current user is tracking
+  getTrackedUsers: async (): Promise<{ success: boolean; data: { trackedUsers: TrackedUser[]; total: number } }> => {
+    return apiRequest('/tracking');
+  },
+
+  // Get list of users who are tracking the current user
+  getMyTrackers: async (): Promise<{ success: boolean; data: { trackers: Tracker[]; total: number } }> => {
+    return apiRequest('/tracking/trackers');
+  },
+
+  // Start tracking a user
+  trackUser: async (userId: string): Promise<{ success: boolean; message: string; data?: { tracking: TrackedUser } }> => {
+    return apiRequest('/tracking/track', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  // Stop tracking a user
+  untrackUser: async (userId: string): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/tracking/untrack/${userId}`, { method: 'DELETE' });
+  },
+
+  // Check if currently tracking a specific user
+  checkIfTracking: async (userId: string): Promise<{ success: boolean; data: { isTracking: boolean } }> => {
+    return apiRequest(`/tracking/check/${userId}`);
+  },
+};
+
 export default {
   auth: authApi,
   dashboard: dashboardApi,
@@ -720,4 +794,5 @@ export default {
   events: eventsApi,
   quickLinks: quickLinksApi,
   projects: projectsApi,
+  tracking: trackingApi,
 };
