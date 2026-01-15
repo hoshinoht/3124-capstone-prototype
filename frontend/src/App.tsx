@@ -38,6 +38,11 @@ export default function App() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const seenNotificationIds = useRef<Set<string>>(new Set());
 
+  // Notification batching - collect notifications within a time window before displaying
+  const pendingNotifications = useRef<ApiNotification[]>([]);
+  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const BATCH_WINDOW_MS = 3000; // 3 second window to collect notifications
+
   // Request notification permission on mount if authenticated
   useEffect(() => {
     if (isAuthenticated && isSupported && permission === 'default') {
@@ -49,6 +54,62 @@ export default function App() {
       setPushEnabled(true);
     }
   }, [isAuthenticated, isSupported, permission, requestPermission]);
+
+  // Function to display batched notifications
+  const displayBatchedNotifications = useCallback(() => {
+    const notifications = pendingNotifications.current;
+    pendingNotifications.current = [];
+
+    if (notifications.length === 0) return;
+
+    if (notifications.length === 1) {
+      // Single notification - show as normal
+      const notification = notifications[0];
+      showNotification({
+        title: notification.title,
+        body: notification.message,
+        tag: `tracking-${notification.id}`,
+        icon: '/favicon.ico',
+      });
+    } else {
+      // Multiple notifications - group them
+      const checkIns = notifications.filter(n => n.relatedEntityType === 'check_in');
+      const checkOuts = notifications.filter(n => n.relatedEntityType === 'check_out');
+
+      // Extract unique user names from titles (format: "UserName has checked in/out")
+      const getNames = (notifs: ApiNotification[]) =>
+        notifs.map(n => n.title.replace(' has checked in', '').replace(' has checked out', ''));
+
+      let title = '';
+      let body = '';
+
+      if (checkIns.length > 0 && checkOuts.length > 0) {
+        // Mixed check-ins and check-outs
+        title = `${notifications.length} team members activity`;
+        const checkInNames = getNames(checkIns);
+        const checkOutNames = getNames(checkOuts);
+        body = `Checked in: ${checkInNames.slice(0, 3).join(', ')}${checkIns.length > 3 ? ` +${checkIns.length - 3} more` : ''}\n` +
+          `Checked out: ${checkOutNames.slice(0, 3).join(', ')}${checkOuts.length > 3 ? ` +${checkOuts.length - 3} more` : ''}`;
+      } else if (checkIns.length > 0) {
+        // Only check-ins
+        const names = getNames(checkIns);
+        title = `${checkIns.length} team members checked in`;
+        body = names.slice(0, 4).join(', ') + (checkIns.length > 4 ? ` and ${checkIns.length - 4} more` : '');
+      } else {
+        // Only check-outs
+        const names = getNames(checkOuts);
+        title = `${checkOuts.length} team members checked out`;
+        body = names.slice(0, 4).join(', ') + (checkOuts.length > 4 ? ` and ${checkOuts.length - 4} more` : '');
+      }
+
+      showNotification({
+        title,
+        body,
+        tag: `tracking-batch-${Date.now()}`,
+        icon: '/favicon.ico',
+      });
+    }
+  }, [showNotification]);
 
   // Poll for new check-in/check-out notifications and show browser notifications
   useEffect(() => {
@@ -63,19 +124,26 @@ export default function App() {
             (n: ApiNotification) => n.relatedEntityType === 'check_in' || n.relatedEntityType === 'check_out'
           );
 
+          let hasNewNotifications = false;
+
           for (const notification of trackingNotifications) {
-            // Only show browser notification if we haven't seen this one before
+            // Only add if we haven't seen this one before
             if (!seenNotificationIds.current.has(notification.id)) {
               seenNotificationIds.current.add(notification.id);
-
-              // Show browser notification
-              showNotification({
-                title: notification.title,
-                body: notification.message,
-                tag: `tracking-${notification.id}`,
-                icon: '/favicon.ico',
-              });
+              pendingNotifications.current.push(notification);
+              hasNewNotifications = true;
             }
+          }
+
+          // If we have new notifications, start/reset the batch timer
+          if (hasNewNotifications) {
+            if (batchTimeoutRef.current) {
+              clearTimeout(batchTimeoutRef.current);
+            }
+            batchTimeoutRef.current = setTimeout(() => {
+              displayBatchedNotifications();
+              batchTimeoutRef.current = null;
+            }, BATCH_WINDOW_MS);
           }
         }
       } catch (err) {
@@ -88,8 +156,13 @@ export default function App() {
 
     // Poll every 30 seconds
     const interval = setInterval(checkForNewNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated, pushEnabled, showNotification]);
+    return () => {
+      clearInterval(interval);
+      if (batchTimeoutRef.current) {
+        clearTimeout(batchTimeoutRef.current);
+      }
+    };
+  }, [isAuthenticated, pushEnabled, displayBatchedNotifications]);
 
   // Generate notifications from tasks and events
   useEffect(() => {
