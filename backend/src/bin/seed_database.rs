@@ -145,6 +145,21 @@ fn hash_password(password: &str) -> Result<String, bcrypt::BcryptError> {
     hash(password, DEFAULT_COST)
 }
 
+fn normalize_category_name(value: &str) -> String {
+    let normalized = value.trim().to_lowercase();
+    if normalized == "it" || normalized == "information technology" {
+        return "IT".to_string();
+    }
+    if normalized == "engineering" || normalized == "eng" {
+        return "Engineering".to_string();
+    }
+    if normalized == "general" {
+        return "General".to_string();
+    }
+
+    "General".to_string()
+}
+
 /// Calculate date range dynamically based on current date
 /// Returns (start_date, end_date, today) where:
 /// - start_date = today - DAYS_BEFORE_TODAY
@@ -753,7 +768,8 @@ async fn seed_glossary(
     for result in rdr.deserialize() {
         let term: GlossaryTermCsv = result?;
         let term_id = generate_uuid();
-        let category_id = category_map.get(&term.category);
+        let category_key = normalize_category_name(&term.category);
+        let category_id = category_map.get(&category_key);
 
         // Based on actual schema: glossary_terms has acronym, full_name, definition, category_id, created_by, is_approved
         // The CSV term field is used for both acronym and full_name (as the server does)

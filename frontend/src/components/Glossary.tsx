@@ -18,6 +18,16 @@ interface GlossaryTerm {
 }
 
 export function Glossary() {
+  const normalizeCategory = (value?: string | null): "IT" | "Engineering" | "General" => {
+    if (!value) return "General";
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "it" || normalized === "information technology") return "IT";
+    if (normalized === "engineering" || normalized === "eng") return "Engineering";
+    if (normalized === "general") return "General";
+
+    return "General";
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"All" | "IT" | "Engineering" | "General">("All");
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -44,12 +54,14 @@ export function Glossary() {
         setLoading(true);
         const response = await glossaryApi.getTerms();
         if (response.data?.terms) {
-          setTerms(response.data.terms.map((t: any) => ({
-            id: t.id,
-            term: t.acronym || t.term,
-            definition: t.definition,
-            category: t.category || "General",
-          })));
+          setTerms(
+            response.data.terms.map((t: any) => ({
+              id: t.id,
+              term: t.acronym || t.term,
+              definition: t.definition,
+              category: normalizeCategory(t.categoryName || t.category),
+            }))
+          );
         }
       } catch (err) {
         console.error("Failed to fetch glossary:", err);
@@ -180,12 +192,9 @@ export function Glossary() {
 
         const termName = matches[0]?.replace(/^"|"$/g, "").replace(/""/g, '"').trim().toUpperCase();
         const definition = matches[1]?.replace(/^"|"$/g, "").replace(/""/g, '"').trim();
-        let category = (matches[2]?.replace(/^"|"$/g, "").trim() || "General") as "IT" | "Engineering" | "General";
-
-        // Validate category
-        if (!["IT", "Engineering", "General"].includes(category)) {
-          category = "General";
-        }
+        const category = normalizeCategory(
+          matches[2]?.replace(/^"|"$/g, "").trim() || "General"
+        );
 
         if (!termName || !definition) {
           failed++;
@@ -195,7 +204,7 @@ export function Glossary() {
 
         // Check for existing term (case-insensitive)
         const existingTermIndex = updatedTerms.findIndex(
-          t => t.term.toUpperCase() === termName
+          t => t.term.toUpperCase() === termName && normalizeCategory(t.category) === category
         );
 
         try {
