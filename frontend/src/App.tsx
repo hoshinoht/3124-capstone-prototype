@@ -334,9 +334,9 @@ export default function App() {
     { id: "tasks", label: "Tasks", icon: CheckSquare },
     { id: "projects", label: "Projects", icon: FolderKanban },
     { id: "personnel", label: "Personnel", icon: Users },
+    { id: "location", label: "Location", icon: MapPin },
     { id: "tracking", label: "Tracking", icon: UserPlus },
     { id: "equipment", label: "Equipment", icon: Package },
-    { id: "location", label: "Location", icon: MapPin },
     { id: "glossary", label: "Glossary", icon: BookOpen },
   ];
 
